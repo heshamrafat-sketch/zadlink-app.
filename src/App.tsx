@@ -6,20 +6,66 @@ interface Product {
   name: string;
   category: string;
   unit: string;
-  price: number;
+  wholesalePrice: number;
+  retailPriceLabel: string;
   badge?: string;
 }
 
 const PRODUCTS: Product[] = [
-  { id: 1, name: 'أرز بسمتي هندي درجة أولى', category: 'حبوب وأرز', unit: 'شيكارة 25 كجم', price: 1450, badge: 'الأكثر طلباً' },
-  { id: 2, name: 'زيت طعام نقي عباد الشمس', category: 'زيوت وسمن', unit: 'جركن 18 لتر', price: 1280, badge: 'عرض مميز' },
-  { id: 3, name: 'مكرونة متنوعة جملة', category: 'مكرونات', unit: 'كرتونة 20 كيس', price: 360 },
-  { id: 4, name: 'سكر أبيض مكرر ناعم', category: 'أساسيات', unit: 'شيكارة 50 كجم', price: 1750 },
-  { id: 5, name: 'صلصة طماطم مركزة', category: 'معلبات', unit: 'كرتونة 24 عبوة', price: 540 },
-  { id: 6, name: 'دقيق فاخر للمخبوزات والحلويات', category: 'حبوب وأرز', unit: 'شيكارة 25 كجم', price: 620 },
+  // الأرز
+  { id: 1, name: 'أرز مصري فاخر عريض الحبة', category: 'الأرز', unit: 'شيكارة 25 كجم (28 ج/كجم)', wholesalePrice: 700, retailPriceLabel: 'القطاعي: 32 – 35 ج.م / كجم', badge: 'الأكثر طلباً' },
+  { id: 2, name: 'أرز بسمتي هندي حبة طويلة', category: 'الأرز', unit: 'شيكارة 25 كجم (56 ج/كجم)', wholesalePrice: 1400, retailPriceLabel: 'القطاعي: 65 – 72 ج.م / كجم' },
+
+  // البطاطس
+  { id: 3, name: 'بطاطس طازجة فرز أول (تحمير/طبيخ)', category: 'البطاطس', unit: 'شيكارة 25 كجم (12 ج/كجم)', wholesalePrice: 300, retailPriceLabel: 'القطاعي: 16 – 20 ج.م / كجم', badge: 'سعر اليوم' },
+  { id: 4, name: 'بطاطس نصف مقلية (فارم فريتس/جملة)', category: 'البطاطس', unit: 'كرتونة 10 كجم (58 ج/كجم)', wholesalePrice: 580, retailPriceLabel: 'القطاعي: 68 – 75 ج.م / كجم' },
+
+  // الخضروات
+  { id: 5, name: 'خضروات طازجة مشكلة (طماطم/خيار/فلفل)', category: 'الخضروات', unit: 'عداية / صندوق 15 كجم', wholesalePrice: 240, retailPriceLabel: 'القطاعي: 20 – 25 ج.م / كجم', badge: 'طازج يومياً' },
+  { id: 6, name: 'خضار مجمد متنوع (بسلة/ملوخية/بامية)', category: 'الخضروات', unit: 'كرتونة 20 كيس × 400 جم', wholesalePrice: 460, retailPriceLabel: 'القطاعي: 28 – 34 ج.م / الكيس' },
+
+  // الأسماك
+  { id: 7, name: 'سمك بلطي طازج درجة أولى', category: 'الأسماك', unit: 'طاولة 20 كجم (72 ج/كجم)', wholesalePrice: 1440, retailPriceLabel: 'القطاعي: 85 – 95 ج.م / كجم' },
+  { id: 8, name: 'فيليه سمك أبيض مجمد', category: 'الأسماك', unit: 'كرتونة 10 كجم (145 ج/كجم)', wholesalePrice: 1450, retailPriceLabel: 'القطاعي: 170 – 185 ج.م / كجم', badge: 'تجهيز مطاعم' },
+
+  // الألبان
+  { id: 9, name: 'حليب معبأ كامل الدسم (1 لتر)', category: 'الألبان', unit: 'كرتونة 12 عبوة (38 ج/عبوة)', wholesalePrice: 456, retailPriceLabel: 'القطاعي: 44 – 48 ج.م / لتر' },
+  { id: 10, name: 'جبنة بيضاء فيتا / ثلاجة جملة', category: 'الألبان', unit: 'جردل 10 كجم (78 ج/كجم)', wholesalePrice: 780, retailPriceLabel: 'القطاعي: 95 – 110 ج.م / كجم' },
+
+  // الفاكهة
+  { id: 11, name: 'فاكهة موسمية طازجة (موز/برتقال/تفاح)', category: 'الفاكهة', unit: 'صندوق 15 كجم (22 ج/كجم)', wholesalePrice: 330, retailPriceLabel: 'القطاعي: 28 – 35 ج.م / كجم' },
+  { id: 12, name: 'لب وقطع فواكه مجمدة للعصائر (مانجو/فراولة)', category: 'الفاكهة', unit: 'كرتونة 10 كجم (55 ج/كجم)', wholesalePrice: 550, retailPriceLabel: 'القطاعي: 68 – 75 ج.م / كجم' },
+
+  // العصائر
+  { id: 13, name: 'عصائر نكتار نكهات متنوعة (235 مل)', category: 'العصائر', unit: 'كرتونة 27 عبوة (8.5 ج/عبوة)', wholesalePrice: 230, retailPriceLabel: 'القطاعي: 11 – 12 ج.م / عبوة' },
+  { id: 14, name: 'مركزات شراب وعصائر للمنشآت (5 لتر)', category: 'العصائر', unit: 'كرتونة 4 جراكن (240 ج/جركن)', wholesalePrice: 960, retailPriceLabel: 'القطاعي: 285 – 310 ج.م / جركن' },
+
+  // الدواجن
+  { id: 15, name: 'صدور دواجن مخلية (بانيه) مبرد/مجمد', category: 'الدواجن', unit: 'كرتونة 10 كجم (168 ج/كجم)', wholesalePrice: 1680, retailPriceLabel: 'القطاعي: 190 – 205 ج.م / كجم', badge: 'الأكثر طلباً' },
+  { id: 16, name: 'دواجن بيضاء كاملة مجمدة (أوزان صافية)', category: 'الدواجن', unit: 'كرتونة 10 كجم (108 ج/كجم)', wholesalePrice: 1080, retailPriceLabel: 'القطاعي: 122 – 130 ج.م / كجم' },
+
+  // البيض
+  { id: 17, name: 'بيض مائدة أبيض مزارع', category: 'البيض', unit: 'كرتونة 12 طبق / 360 بيضة (145 ج/طبق)', wholesalePrice: 1740, retailPriceLabel: 'القطاعي: 160 – 168 ج.م / الطبق', badge: 'بورصة اليوم' },
+  { id: 18, name: 'بيض مائدة أحمر مزارع', category: 'البيض', unit: 'كرتونة 12 طبق / 360 بيضة (148 ج/طبق)', wholesalePrice: 1776, retailPriceLabel: 'القطاعي: 165 – 172 ج.م / الطبق' },
+
+  // اللحوم
+  { id: 19, name: 'لحوم بقري مجمدة (مكعبات / مفروم)', category: 'اللحوم', unit: 'كرتونة 10 كجم (235 ج/كجم)', wholesalePrice: 2350, retailPriceLabel: 'القطاعي: 265 – 285 ج.م / كجم', badge: 'جودة مختارة' },
+  { id: 20, name: 'لحوم بقري بلدي مشفي (توريد فنادق ومطاعم)', category: 'اللحوم', unit: 'عبوة 10 كجم (345 ج/كجم)', wholesalePrice: 3450, retailPriceLabel: 'القطاعي: 390 – 420 ج.م / كجم' },
 ];
 
-const CATEGORIES = ['الكل', 'حبوب وأرز', 'زيوت وسمن', 'مكرونات', 'أساسيات', 'معلبات'];
+const CATEGORIES = [
+  'الكل',
+  'الخضروات',
+  'البطاطس',
+  'الأسماك',
+  'الألبان',
+  'الفاكهة',
+  'العصائر',
+  'الدواجن',
+  'البيض',
+  'الأرز',
+  'اللحوم',
+];
 
 export function App() {
   const [selectedCategory, setSelectedCategory] = useState('الكل');
@@ -29,7 +75,8 @@ export function App() {
 
   const filteredProducts = PRODUCTS.filter((item) => {
     const matchesCategory = selectedCategory === 'الكل' || item.category === selectedCategory;
-    const matchesSearch = item.name.includes(searchQuery.trim());
+    const matchesSearch =
+      item.name.includes(searchQuery.trim()) || item.category.includes(searchQuery.trim());
     return matchesCategory && matchesSearch;
   });
 
@@ -41,7 +88,7 @@ export function App() {
   const totalItems = Object.values(cart).reduce((sum, qty) => sum + qty, 0);
   const totalPrice = Object.entries(cart).reduce((sum, [id, qty]) => {
     const product = PRODUCTS.find((p) => p.id === Number(id));
-    return sum + (product ? product.price * qty : 0);
+    return sum + (product ? product.wholesalePrice * qty : 0);
   }, 0);
 
   const handleCheckout = () => {
@@ -61,7 +108,7 @@ export function App() {
             </div>
             <div>
               <span className="font-bold text-lg text-stone-900 block leading-tight">زاد لينك | ZadLink</span>
-              <span className="text-xs text-emerald-700 font-medium">توريد غذائي وتوزيع جملة</span>
+              <span className="text-xs text-emerald-700 font-medium">توريد غذائي وتوزيع بسعر الجملة</span>
             </div>
           </div>
 
@@ -91,13 +138,13 @@ export function App() {
           <div className="max-w-2xl space-y-3">
             <div className="inline-flex items-center gap-1.5 text-xs font-semibold bg-emerald-50 text-emerald-800 px-3 py-1 rounded-full">
               <Sparkles className="w-3.5 h-3.5" />
-              <span>توريد منتظم وجودة مضمونة</span>
+              <span>أسعار الجملة المباشرة للمنشآت والتجار</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold text-stone-900">
               منصة زاد لينك للتوريد الغذائي وتجهيز المنشآت والمحلات
             </h1>
             <p className="text-stone-600 text-sm sm:text-base leading-relaxed">
-              تصفح الأصناف الأساسية، اختر الكميات المناسبة لنشاطك، وأرسل قائمة طلبك بسهولة وسرعة.
+              اطلب احتياجاتك من الخضروات، البطاطس، الأسماك، الألبان، الفاكهة، العصائر، الدواجن، البيض، الأرز، واللحوم بسعر الجملة مع بيان سعر القطاعي الاسترشادي لكل صنف.
             </p>
           </div>
 
@@ -120,14 +167,14 @@ export function App() {
         {/* Search & Categories */}
         <section className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <h2 className="text-xl font-bold text-stone-900">قائمة الأصناف</h2>
+            <h2 className="text-xl font-bold text-stone-900">قائمة الأقسام وأسعار الجملة</h2>
             <div className="relative w-full sm:w-72">
               <Search className="w-4 h-4 text-stone-400 absolute right-3 top-1/2 -translate-y-1/2" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="ابحث عن صنف..."
+                placeholder="ابحث عن صنف أو قسم..."
                 className="w-full pr-9 pl-3 py-2 rounded-xl border border-stone-300 bg-white text-sm focus:outline-none focus:border-emerald-600"
               />
             </div>
@@ -158,7 +205,9 @@ export function App() {
               >
                 <div className="space-y-2">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs font-medium text-stone-500">{product.category}</span>
+                    <span className="text-xs font-medium text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-full">
+                      {product.category}
+                    </span>
                     {product.badge && (
                       <span className="text-xs font-semibold bg-amber-50 text-amber-800 px-2.5 py-0.5 rounded-full">
                         {product.badge}
@@ -166,12 +215,16 @@ export function App() {
                     )}
                   </div>
                   <h3 className="font-bold text-base text-stone-900">{product.name}</h3>
-                  <p className="text-xs text-stone-500">العبوة: {product.unit}</p>
+                  <p className="text-xs text-stone-600">عبوة الجملة: {product.unit}</p>
+                  <p className="text-xs font-medium text-stone-500 bg-stone-100 inline-block px-2.5 py-1 rounded-lg">
+                    {product.retailPriceLabel}
+                  </p>
                 </div>
 
                 <div className="mt-5 pt-4 border-t border-stone-100 flex items-center justify-between">
                   <div>
-                    <span className="text-lg font-extrabold text-emerald-800">{product.price}</span>
+                    <span className="text-[11px] text-emerald-700 font-semibold block">سعر الجملة</span>
+                    <span className="text-lg font-extrabold text-emerald-800">{product.wholesalePrice}</span>
                     <span className="text-xs text-stone-500 mr-1">ج.م</span>
                   </div>
                   <button
@@ -188,7 +241,7 @@ export function App() {
 
         {/* Order Summary */}
         <section id="order-summary" className="bg-white rounded-2xl border border-stone-200 p-6 shadow-sm">
-          <h2 className="text-lg font-bold text-stone-900 mb-3">ملخص الطلب</h2>
+          <h2 className="text-lg font-bold text-stone-900 mb-3">ملخص طلب الجملة</h2>
 
           {orderSent && (
             <div className="mb-4 flex items-center gap-2 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-900 p-3.5 text-sm font-medium">
@@ -200,7 +253,7 @@ export function App() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="space-y-1 text-sm text-stone-700">
               <p>عدد الوحدات المختارة: <strong className="text-stone-900">{totalItems}</strong></p>
-              <p>الإجمالي التقديري: <strong className="text-emerald-800 text-base">{totalPrice} ج.م</strong></p>
+              <p>إجمالي الجملة التقديري: <strong className="text-emerald-800 text-base">{totalPrice} ج.م</strong></p>
             </div>
             <button
               onClick={handleCheckout}
@@ -217,7 +270,7 @@ export function App() {
       <footer className="bg-stone-900 text-stone-300 py-6 mt-8">
         <div className="mx-auto max-w-6xl px-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs">
           <span>© {new Date().getFullYear()} زاد لينك | ZadLink — جميع الحقوق محفوظة</span>
-          <span>توريد غذائي موثوق</span>
+          <span>توريد غذائي موثوق بسعر الجملة</span>
         </div>
       </footer>
     </div>
