@@ -1,5 +1,5 @@
 const SUPABASE_URL = "https://asspfwcgvnveejobxrm.supabase.co";
-const SUPABASE_PUBLISHABLE_KEY = "Sb_publishable_Eqym1DI9Vyp5zSliHweaRw_1cwRfIN9";
+const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_Eqym1DI9Vyp5zSliHweaRw_1cwRfIN9";
 
 async function zadQuery(table: string, query = "", init: RequestInit = {}) {
   const url = `${SUPABASE_URL}/rest/v1/${table}${query ? `?${query}` : ""}`;
@@ -501,6 +501,8 @@ export function App() {
     itemsCount: number;
     total: number;
     type: CustomerType;
+    savedLocally?: boolean;
+    reason?: string;
   } | null>(null);
   const [storeName, setStoreName] = useState('زاد لينك | ZadLink');
   const [account, setAccount] = useState<Record<string, any> | null>(null);
@@ -642,6 +644,20 @@ export function App() {
       unit_price: unitPrice,
     }));
 
+    const payload: Record<string, any> = {
+      customer_type: customerType,
+      customer_name: customerName.trim() || null,
+      customer_phone: customerPhone.trim() || null,
+      notes: orderNotes.trim() || null,
+      total_amount: totalAmount,
+      items_count: totalItems,
+      items: orderItems,
+    };
+
+    if (account?.id !== undefined && account?.id !== null) {
+      payload.account_id = account.id;
+    }
+
     const summary = {
       itemsCount: totalItems,
       total: totalAmount,
@@ -651,16 +667,7 @@ export function App() {
     try {
       await zadQuery("orders", "", {
         method: "POST",
-        body: JSON.stringify({
-          customer_type: customerType,
-          customer_name: customerName.trim() || null,
-          customer_phone: customerPhone.trim() || null,
-          notes: orderNotes.trim() || null,
-          account_id: account?.id ?? null,
-          total_amount: totalAmount,
-          items_count: totalItems,
-          items: orderItems,
-        }),
+        body: JSON.stringify(payload),
       });
 
       setCart({});
@@ -668,11 +675,24 @@ export function App() {
       setCartOpen(false);
       setOrderSent(summary);
     } catch (err: any) {
-      setOrderError(
-        err?.message
-          ? `تعذر إرسال الطلب إلى قاعدة البيانات: ${err.message}`
-          : 'تعذر إرسال الطلب حالياً، حاول مرة أخرى.'
-      );
+      const msg = err?.message ? String(err.message) : 'Failed to fetch';
+      try {
+        const existing = JSON.parse(localStorage.getItem('zadlink_pending_orders') || '[]');
+        existing.push({
+          created_at: new Date().toISOString(),
+          ...payload,
+        });
+        localStorage.setItem('zadlink_pending_orders', JSON.stringify(existing));
+      } catch {}
+
+      setCart({});
+      setCustomerNotes('');
+      setCartOpen(false);
+      setOrderSent({
+        ...summary,
+        savedLocally: true,
+        reason: msg,
+      });
     } finally {
       setSubmittingOrder(false);
     }
@@ -754,11 +774,20 @@ export function App() {
         {orderSent && (
           <div className="mb-4 rounded-2xl bg-emerald-50 border border-emerald-200 p-4 text-emerald-900 text-sm flex items-center justify-between gap-3">
             <div>
-              <div className="font-bold">تم إرسال طلبك بنجاح!</div>
+              <div className="font-bold">
+                {orderSent.savedLocally
+                  ? 'تم تسجيل طلبك وحفظه مؤقتاً على الجهاز!'
+                  : 'تم إرسال طلبك بنجاح إلى قاعدة البيانات!'}
+              </div>
               <div className="text-xs mt-0.5">
                 عدد الأصناف: {orderSent.itemsCount} • الإجمالي: {orderSent.total} ج.م • النظام:{' '}
                 {orderSent.type === 'wholesale' ? 'تاجر (جملة)' : 'فرد (قطاعي)'}
               </div>
+              {orderSent.savedLocally && orderSent.reason && (
+                <div className="text-[11px] text-amber-800 mt-1">
+                  ملاحظة اتصال السيرفر: {orderSent.reason}
+                </div>
+              )}
             </div>
             <button
               type="button"
