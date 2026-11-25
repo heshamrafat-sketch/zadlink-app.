@@ -318,21 +318,25 @@ export function App() {
     }
 
     const summary: OrderSummary = { itemsCount: totalItems, total: totalAmount, type: customerType };
+    savePendingOrderLocally(payload);
+
+    let finalSummary: OrderSummary = {
+      ...summary,
+      savedLocally: true,
+      reason: 'تعذر الوصول الفوري لجدول الطلبات وتم الحفظ محلياً',
+    };
 
     try {
       await zadQuery("orders", "", { method: "POST", body: JSON.stringify(payload) });
-      clearCart();
-      setCustomerNotes('');
-      setCartOpen(false);
-      setOrderSent(summary);
+      finalSummary = { ...summary, savedLocally: false };
     } catch (err: any) {
       const msg = err?.message ? String(err.message) : 'Failed to fetch';
-      savePendingOrderLocally(payload);
+      finalSummary = { ...summary, savedLocally: true, reason: msg };
+    } finally {
       clearCart();
       setCustomerNotes('');
       setCartOpen(false);
-      setOrderSent({ ...summary, savedLocally: true, reason: msg });
-    } finally {
+      setOrderSent(finalSummary);
       setSubmittingOrder(false);
     }
   };
@@ -715,4 +719,3 @@ export function App() {
 }
 
 export default App;
-
