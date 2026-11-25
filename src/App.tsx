@@ -510,6 +510,20 @@ export function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [cart, setCart] = useState<Record<number, number>>({});
   const [orderSent, setOrderSent] = useState(false);
+  const [storeName, setStoreName] = useState('زاد لينك | ZadLink');
+
+  React.useEffect(() => {
+    zadQuery("store_settings", "select=*&limit=1")
+      .then((rows) => {
+        const row = Array.isArray(rows) ? rows[0] : null;
+        if (!row) return;
+        if (row.store_name) setStoreName(String(row.store_name));
+        if (row.default_customer_type === 'retail' || row.default_customer_type === 'wholesale') {
+          setCustomerType(row.default_customer_type);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const totalItems = useMemo(
     () => Object.values(cart).reduce((sum, qty) => sum + qty, 0),
@@ -577,7 +591,7 @@ export function App() {
               ز
             </span>
             <div>
-              <div className="font-bold text-base leading-tight">زاد لينك | ZadLink</div>
+              <div className="font-bold text-base leading-tight"{storeName}</div>
               <div className="text-xs text-[#0b7a4b]">
                 {customerType === 'wholesale' ? 'أسعار الجملة للتجار والمطاعم' : 'أسعار القطاعي للأفراد'}
               </div>
