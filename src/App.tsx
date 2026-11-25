@@ -20,10 +20,10 @@ interface ProductItem {
 // 1. الأقسام الرئيسية (تظهر أولاً في واجهة المتجر)
 const CATEGORIES: CategoryItem[] = [
   {
-    id: 'oils-basics',
+    id: 'oil-basics',
     title: 'زيوت وسمن وأساسيات',
     subtitle: 'زيوت، سمن، أرز، مكرونة، دقيق، سكر، طحينة، عسل، خل',
-    image: './oils-ghee.jpg.jpg',
+    image: './oil-ghee.jpg.jpg',
   },
   {
     id: 'frozen-meats',
