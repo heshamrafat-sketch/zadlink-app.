@@ -23,7 +23,7 @@ const CATEGORIES: CategoryItem[] = [
     id: 'oils-basics',
     title: 'زيوت وسمن وأساسيات',
     subtitle: 'زيوت، سمن، أرز، مكرونة، دقيق، سكر، طحينة، عسل، خل',
-    image:'./oil.png.png'
+    image: './oil.png.png',
   },
   {
     id: 'frozen-meats',
@@ -91,7 +91,7 @@ const PRODUCTS: ProductItem[] = [
     unit: 'العبوة: جركن 18 لتر',
     price: 1280,
     badge: 'عرض مميز',
-    image: './oils-ghee.jpg.jpg',
+    image: './oil.png.png',
   },
   {
     id: 2,
@@ -99,7 +99,7 @@ const PRODUCTS: ProductItem[] = [
     name: 'دقيق فاخر للمخبوزات والحلويات',
     unit: 'العبوة: شيكارة 25 كجم',
     price: 620,
-    image: './flour.jpg.jpg',
+    image: './flour.png.jpg',
   },
   {
     id: 3,
@@ -108,7 +108,7 @@ const PRODUCTS: ProductItem[] = [
     unit: 'العبوة: شيكارة',
     price: 0,
     badge: 'الأكثر طلباً',
-    image: './rice.jpg.jpg',
+    image: './rice.jpg.png',
   },
   {
     id: 4,
@@ -116,7 +116,7 @@ const PRODUCTS: ProductItem[] = [
     name: 'مكرونات',
     unit: 'العبوة: كرتونة',
     price: 0,
-    image: './pasta.jpg.jpg',
+    image: './pasta.png.jpg',
   },
   {
     id: 5,
@@ -124,7 +124,7 @@ const PRODUCTS: ProductItem[] = [
     name: 'سكر',
     unit: 'العبوة: شيكارة',
     price: 0,
-    image: './sugar.jpg.jpg',
+    image: './sugar.png.jpg',
   },
   {
     id: 6,
