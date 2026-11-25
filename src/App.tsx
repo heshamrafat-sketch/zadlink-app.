@@ -802,7 +802,7 @@ export function App() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {CATEGORIES.map((category) => {
-                const count = PRODUCTS.filter((p) => p.categoryId === category.id).length;
+                const count = productsList.filter((p) => p.categoryId === category.id).length;
                 return (
                   <button
                     key={category.id}
