@@ -23,7 +23,7 @@ const CATEGORIES: CategoryItem[] = [
     id: 'oil-basics',
     title: 'زيوت وسمن وأساسيات',
     subtitle: 'زيوت، سمن، أرز، مكرونة، دقيق، سكر، طحينة، عسل، خل',
-    image: './oil-ghee.jpg.jpg',
+    image: './oil.jpg.jpg',
   },
   {
     id: 'frozen-meats',
