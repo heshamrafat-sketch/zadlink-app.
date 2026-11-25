@@ -1,5 +1,6 @@
 const SUPABASE_URL = "https://asspfwcgvnveejobxrm.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "Sb_publishable_Eqym1DI9Vyp5zSliHweaRw_1cwRfIN9";
+
 async function zadQuery(table: string, query = "", init: RequestInit = {}) {
   const url = `${SUPABASE_URL}/rest/v1/${table}${query ? `?${query}` : ""}`;
   const res = await fetch(url, {
@@ -105,7 +106,6 @@ const CATEGORIES: CategoryItem[] = [
 
 // 2. المنتجات الداخلية لكل قسم (أسعار استرشادية تقريبية قابلة للتعديل)
 const PRODUCTS: ProductItem[] = [
-  // --- زيوت وسمن وأساسيات ---
   {
     id: 1,
     categoryId: 'oils-basics',
@@ -198,8 +198,6 @@ const PRODUCTS: ProductItem[] = [
     wholesalePrice: 185,
     image: './vinegar.jpg.jpg',
   },
-
-  // --- مجمدات ومصنعات لحوم ---
   {
     id: 10,
     categoryId: 'frozen-meats',
@@ -240,8 +238,6 @@ const PRODUCTS: ProductItem[] = [
     wholesalePrice: 0,
     image: './ice-cream.jpg.jpg',
   },
-
-  // --- دواجن وبيض وأسماك ---
   {
     id: 14,
     categoryId: 'poultry-fish',
@@ -292,8 +288,6 @@ const PRODUCTS: ProductItem[] = [
     wholesalePrice: 0,
     image: './herring.jpg.jpg',
   },
-
-  // --- ألبان وأجبان ---
   {
     id: 19,
     categoryId: 'dairy-cheese',
@@ -314,8 +308,6 @@ const PRODUCTS: ProductItem[] = [
     wholesalePrice: 0,
     image: './cheese.jpg.jpg',
   },
-
-  // --- معلبات وصوصات ---
   {
     id: 21,
     categoryId: 'canned-sauces',
@@ -346,8 +338,6 @@ const PRODUCTS: ProductItem[] = [
     wholesalePrice: 0,
     image: './jam-spreads.jpg.jpg',
   },
-
-  // --- مشروبات وشاي وقهوة ---
   {
     id: 24,
     categoryId: 'beverages',
@@ -398,8 +388,6 @@ const PRODUCTS: ProductItem[] = [
     wholesalePrice: 95,
     image: './water.jpg.jpg',
   },
-
-  // --- مخبوزات ومستلزمات خبز ---
   {
     id: 29,
     categoryId: 'bakery-supplies',
@@ -430,8 +418,6 @@ const PRODUCTS: ProductItem[] = [
     wholesalePrice: 0,
     image: './baking-supplies.jpg.jpg',
   },
-
-  // --- توابل وبهارات وملح ---
   {
     id: 32,
     categoryId: 'spices-salt',
@@ -452,8 +438,6 @@ const PRODUCTS: ProductItem[] = [
     wholesalePrice: 85,
     image: './salt.jpg.jpg',
   },
-
-  // --- فاكهة وخضار ---
   {
     id: 34,
     categoryId: 'fruits-veggies',
@@ -464,8 +448,6 @@ const PRODUCTS: ProductItem[] = [
     wholesalePrice: 0,
     image: './fruits.jpg.jpg',
   },
-
-  // --- منظفات وورقيات ---
   {
     id: 35,
     categoryId: 'cleaning-paper',
@@ -509,10 +491,20 @@ export function App() {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [cart, setCart] = useState<Record<number, number>>({});
-  const [orderSent, setOrderSent] = useState(false);
+  const [cartOpen, setCartOpen] = useState(false);
+  const [customerName, setCustomerName] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
+  const [orderNotes, setOrderNotes] = useState('');
+  const [submittingOrder, setSubmittingOrder] = useState(false);
+  const [orderError, setOrderError] = useState<string | null>(null);
+  const [orderSent, setOrderSent] = useState<{
+    itemsCount: number;
+    total: number;
+    type: CustomerType;
+  } | null>(null);
   const [storeName, setStoreName] = useState('زاد لينك | ZadLink');
   const [account, setAccount] = useState<Record<string, any> | null>(null);
-
+  const [productsList, setProductsList] = useState<ProductItem[]>(PRODUCTS);
 
   React.useEffect(() => {
     zadQuery("store_settings", "select=*&limit=1")
@@ -526,50 +518,65 @@ export function App() {
       })
       .catch(() => {});
   }, []);
-  const [productsList, setProductsList] = useState<ProductItem[]>(PRODUCTS);
 
   React.useEffect(() => {
     zadQuery("products", "select=*")
       .then((rows) => {
         if (!Array.isArray(rows) || rows.length === 0) return;
-        const mapped: ProductItem[] = rows.map((r: any, idx: number) => ({
-          id: Number(r.id ?? idx + 1),
-          categoryId: String(r.category_id ?? r.categoryId ?? 'oils-basics'),
-          name: String(r.name ?? ''),
-          retailUnit: String(r.retail_unit ?? r.retailUnit ?? 'قطاعي'),
-          wholesaleUnit: String(r.wholesale_unit ?? r.wholesaleUnit ?? 'جملة'),
-          retailPrice: Number(r.retail_price ?? r.retailPrice ?? 0),
-          wholesalePrice: Number(r.wholesale_price ?? r.wholesalePrice ?? 0),
-          badge: r.badge ? String(r.badge) : undefined,
-          image: String(r.image ?? './oil.png.png'),
-        })).filter((p) => p.name);
+        const mapped: ProductItem[] = rows
+          .map((r: any, idx: number) => ({
+            id: Number(r.id ?? idx + 1),
+            categoryId: String(r.category_id ?? r.categoryId ?? 'oils-basics'),
+            name: String(r.name ?? ''),
+            retailUnit: String(r.retail_unit ?? r.retailUnit ?? 'قطاعي'),
+            wholesaleUnit: String(r.wholesale_unit ?? r.wholesaleUnit ?? 'جملة'),
+            retailPrice: Number(r.retail_price ?? r.retailPrice ?? 0),
+            wholesalePrice: Number(r.wholesale_price ?? r.wholesalePrice ?? 0),
+            badge: r.badge ? String(r.badge) : undefined,
+            image: String(r.image ?? './oil.png.png'),
+          }))
+          .filter((p) => p.name);
         if (mapped.length > 0) setProductsList(mapped);
       })
       .catch(() => {});
   }, []);
-React.useEffect(() => {
-  zadQuery("accounts", "select=*&limit=1")
-    .then((rows) => {
-      if (Array.isArray(rows) && rows.length > 0) {
-        setAccount(rows[0]);
-      }
-    })
-    .catch(() => {});
-}, []);
+
+  React.useEffect(() => {
+    zadQuery("accounts", "select=*&limit=1")
+      .then((rows) => {
+        if (Array.isArray(rows) && rows.length > 0) {
+          setAccount(rows[0]);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const cartEntries = useMemo(
+    () =>
+      Object.entries(cart)
+        .map(([idStr, qty]) => {
+          const product = productsList.find((p) => p.id === Number(idStr));
+          if (!product || qty <= 0) return null;
+          const unitPrice = getPriceByCustomer(product, customerType);
+          return {
+            product,
+            qty,
+            unitPrice,
+            lineTotal: unitPrice * qty,
+          };
+        })
+        .filter((entry): entry is NonNullable<typeof entry> => entry !== null),
+    [cart, productsList, customerType]
+  );
 
   const totalItems = useMemo(
-    () => Object.values(cart).reduce((sum, qty) => sum + qty, 0),
-    [cart]
+    () => cartEntries.reduce((sum, entry) => sum + entry.qty, 0),
+    [cartEntries]
   );
 
   const totalAmount = useMemo(
-    () =>
-      Object.entries(cart).reduce((sum, [idStr, qty]) => {
-                const prod = productsList.find((p) => p.id === Number(idStr));
-
-        return sum + (prod ? getPriceByCustomer(prod, customerType) * qty : 0);
-      }, 0),
-    [cart, customerType]
+    () => cartEntries.reduce((sum, entry) => sum + entry.lineTotal, 0),
+    [cartEntries]
   );
 
   const currentCategory = useMemo(
@@ -579,7 +586,7 @@ React.useEffect(() => {
 
   const visibleProducts = useMemo(() => {
     const q = searchQuery.trim();
-    return PRODUCTS.filter((item) => {
+    return productsList.filter((item) => {
       const matchesCategory = q
         ? true
         : selectedCategoryId
@@ -592,48 +599,87 @@ React.useEffect(() => {
         : true;
       return matchesCategory && matchesSearch;
     });
-  }, [selectedCategoryId, searchQuery]);
+  }, [productsList, selectedCategoryId, searchQuery]);
 
   const addToCart = (productId: number) => {
-    setOrderSent(false);
+    setOrderSent(null);
+    setOrderError(null);
     setCart((prev) => ({
       ...prev,
       [productId]: (prev[productId] || 0) + 1,
     }));
   };
-  const handleCheckout = () => {
-    if (totalItems === 0) return;
-    const orderItems = Object.entries(cart)
-      .map(([idStr, qty]) => {
-        const prod = productsList.find((p) => p.id === Number(idStr));
-        return prod
-          ? {
-              product_id: prod.id,
-              name: prod.name,
-              qty,
-              unit_price: getPriceByCustomer(prod, customerType),
-            }
-          : null;
-      })
-      .filter(Boolean);
 
-    zadQuery("orders", "", {
-      method: "POST",
-      body: JSON.stringify({
-        customer_type: customerType,
-        total_amount: totalAmount,
-        items_count: totalItems,
-        items: orderItems,
-      }),
-    }).catch(() => {});
-
-    setOrderSent(true);
-    setCart({});
+  const updateCartQty = (productId: number, nextQty: number) => {
+    setOrderError(null);
+    setCart((prev) => {
+      const copy = { ...prev };
+      if (nextQty <= 0) {
+        delete copy[productId];
+      } else {
+        copy[productId] = nextQty;
+      }
+      return copy;
+    });
   };
 
+  const clearCart = () => {
+    setCart({});
+    setOrderError(null);
+  };
+
+  const handleCheckout = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (cartEntries.length === 0 || submittingOrder) return;
+
+    setSubmittingOrder(true);
+    setOrderError(null);
+
+    const orderItems = cartEntries.map(({ product, qty, unitPrice }) => ({
+      product_id: product.id,
+      name: product.name,
+      qty,
+      unit_price: unitPrice,
+    }));
+
+    const summary = {
+      itemsCount: totalItems,
+      total: totalAmount,
+      type: customerType,
+    };
+
+    try {
+      await zadQuery("orders", "", {
+        method: "POST",
+        body: JSON.stringify({
+          customer_type: customerType,
+          customer_name: customerName.trim() || null,
+          customer_phone: customerPhone.trim() || null,
+          notes: orderNotes.trim() || null,
+          account_id: account?.id ?? null,
+          total_amount: totalAmount,
+          items_count: totalItems,
+          items: orderItems,
+        }),
+      });
+
+      setCart({});
+      setCustomerNotes('');
+      setCartOpen(false);
+      setOrderSent(summary);
+    } catch (err: any) {
+      setOrderError(
+        err?.message
+          ? `تعذر إرسال الطلب إلى قاعدة البيانات: ${err.message}`
+          : 'تعذر إرسال الطلب حالياً، حاول مرة أخرى.'
+      );
+    } finally {
+      setSubmittingOrder(false);
+    }
+  };
 
   return (
-    <div dir="rtl" className="min-h-screen bg-[#f6f8f7] text-gray-900 pb-12">
+    <div dir="rtl" className="min-h-screen bg-[#f6f8f7] text-gray-900 pb-14">
       <header className="sticky top-0 z-20 bg-white border-b border-gray-200 px-4 py-3 shadow-sm">
         <div className="max-w-4xl mx-auto flex items-center justify-between gap-3">
           <button
@@ -648,7 +694,7 @@ React.useEffect(() => {
               ز
             </span>
             <div>
-             <div className="font-bold text-base leading-tight">{storeName}</div>
+              <div className="font-bold text-base leading-tight">{storeName}</div>
               <div className="text-xs text-[#0b7a4b]">
                 {customerType === 'wholesale' ? 'أسعار الجملة للتجار والمطاعم' : 'أسعار القطاعي للأفراد'}
               </div>
@@ -657,10 +703,13 @@ React.useEffect(() => {
 
           <button
             type="button"
-            onClick={handleCheckout}
-            className="bg-[#0b7a4b] hover:bg-[#09633c] text-white font-semibold px-4 py-2.5 rounded-xl text-sm flex items-center gap-2"
+            onClick={() => {
+              setOrderError(null);
+              setCartOpen(true);
+            }}
+            className="bg-[#0b7a4b] hover:bg-[#09633c] text-white font-semibold px-4 py-2.5 rounded-xl text-sm flex items-center gap-2 shrink-0"
           >
-            <span>الطلب ({totalItems})</span>
+            <span>السلة والطلب ({totalItems})</span>
             {totalAmount > 0 && <span>• {totalAmount} ج.م</span>}
           </button>
         </div>
@@ -703,8 +752,21 @@ React.useEffect(() => {
 
       <main className="max-w-4xl mx-auto px-4 mt-5">
         {orderSent && (
-          <div className="mb-4 rounded-2xl bg-emerald-50 border border-emerald-200 p-4 text-emerald-900 text-sm font-medium">
-            تم تسجيل طلبك مبدئياً بنظام ({customerType === 'wholesale' ? 'تاجر / جملة' : 'فرد / قطاعي'}).
+          <div className="mb-4 rounded-2xl bg-emerald-50 border border-emerald-200 p-4 text-emerald-900 text-sm flex items-center justify-between gap-3">
+            <div>
+              <div className="font-bold">تم إرسال طلبك بنجاح!</div>
+              <div className="text-xs mt-0.5">
+                عدد الأصناف: {orderSent.itemsCount} • الإجمالي: {orderSent.total} ج.م • النظام:{' '}
+                {orderSent.type === 'wholesale' ? 'تاجر (جملة)' : 'فرد (قطاعي)'}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setOrderSent(null)}
+              className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-900"
+            >
+              إغلاق
+            </button>
           </div>
         )}
 
@@ -745,6 +807,7 @@ React.useEffect(() => {
                   const activeUnit = getUnitByCustomer(product, customerType);
                   const secondaryPrice =
                     customerType === 'wholesale' ? product.retailPrice : product.wholesalePrice;
+                  const qtyInCart = cart[product.id] || 0;
 
                   return (
                     <div
@@ -782,14 +845,34 @@ React.useEffect(() => {
                         </div>
                       </div>
 
-                      <div className="px-4 pb-4 pt-2 flex items-center justify-between border-t border-gray-100">
-                        <button
-                          type="button"
-                          onClick={() => addToCart(product.id)}
-                          className="bg-gray-900 hover:bg-black text-white text-sm font-semibold px-4 py-2 rounded-xl"
-                        >
-                          أضف للطلب {cart[product.id] ? `(${cart[product.id]})` : ''}
-                        </button>
+                      <div className="px-4 pb-4 pt-2 flex items-center justify-between gap-2 border-t border-gray-100">
+                        {qtyInCart > 0 ? (
+                          <div className="flex items-center gap-2 bg-gray-100 rounded-xl p-1">
+                            <button
+                              type="button"
+                              onClick={() => updateCartQty(product.id, qtyInCart + 1)}
+                              className="w-8 h-8 rounded-lg bg-[#0b7a4b] text-white font-bold text-base leading-none"
+                            >
+                              +
+                            </button>
+                            <span className="min-w-6 text-center text-sm font-bold">{qtyInCart}</span>
+                            <button
+                              type="button"
+                              onClick={() => updateCartQty(product.id, qtyInCart - 1)}
+                              className="w-8 h-8 rounded-lg bg-white border border-gray-300 text-gray-800 font-bold text-base leading-none"
+                            >
+                              -
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => addToCart(product.id)}
+                            className="bg-gray-900 hover:bg-black text-white text-sm font-semibold px-4 py-2 rounded-xl"
+                          >
+                            أضف للطلب
+                          </button>
+                        )}
 
                         <div className="font-bold text-base text-gray-900">
                           {activePrice > 0 ? `${activePrice} ج.م` : 'حسب السعر'}
@@ -844,6 +927,146 @@ React.useEffect(() => {
           </div>
         )}
       </main>
+
+      {/* نافذة السلة وإتمام عملية الشراء */}
+      {cartOpen && (
+        <div className="fixed inset-0 z-40 bg-black/50 flex justify-end">
+          <div className="w-full max-w-md bg-white h-full overflow-y-auto p-5 flex flex-col justify-between shadow-2xl">
+            <div>
+              <div className="flex items-center justify-between border-b border-gray-200 pb-3.5">
+                <div>
+                  <h2 className="font-bold text-lg text-gray-900">سلة الطلب وإتمام الشراء</h2>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    النظام الحالي: {customerType === 'wholesale' ? 'تاجر (جملة)' : 'فرد (قطاعي)'}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setCartOpen(false)}
+                  className="rounded-xl border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"
+                >
+                  إغلاق ✕
+                </button>
+              </div>
+
+              {cartEntries.length === 0 ? (
+                <div className="py-12 text-center text-gray-500 text-sm">
+                  السلة فارغة حالياً. اختر قسماً وأضف المنتجات التي تريد طلبها.
+                </div>
+              ) : (
+                <div className="mt-4 space-y-3">
+                  {cartEntries.map(({ product, qty, unitPrice, lineTotal }) => (
+                    <div
+                      key={product.id}
+                      className="rounded-2xl border border-gray-200 p-3 flex items-center justify-between gap-3 bg-[#f9fbfa]"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="font-bold text-sm text-gray-900 truncate">{product.name}</div>
+                        <div className="text-xs text-gray-500 mt-0.5">
+                          {getUnitByCustomer(product, customerType)} • {unitPrice} ج.م
+                        </div>
+                        <div className="text-xs font-bold text-[#0b7a4b] mt-1">
+                          الإجمالي: {lineTotal} ج.م
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => updateCartQty(product.id, qty + 1)}
+                          className="w-7 h-7 rounded-lg bg-[#0b7a4b] text-white font-bold text-sm"
+                        >
+                          +
+                        </button>
+                        <span className="min-w-5 text-center text-xs font-bold">{qty}</span>
+                        <button
+                          type="button"
+                          onClick={() => updateCartQty(product.id, qty - 1)}
+                          className="w-7 h-7 rounded-lg bg-white border border-gray-300 text-gray-800 font-bold text-sm"
+                        >
+                          -
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+
+                  <div className="flex items-center justify-between pt-2">
+                    <button
+                      type="button"
+                      onClick={clearCart}
+                      className="text-xs font-semibold text-red-600 hover:underline"
+                    >
+                      تفريغ السلة
+                    </button>
+                    <div className="text-sm font-bold text-gray-900">
+                      إجمالي الطلب ({totalItems} عنصر): {totalAmount} ج.م
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {cartEntries.length > 0 && (
+              <form onSubmit={handleCheckout} className="mt-6 pt-4 border-t border-gray-200 space-y-3">
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">
+                    الاسم / اسم المنشأة
+                  </label>
+                  <input
+                    type="text"
+                    value={customerName}
+                    onChange={(e) => setCustomerName(e.target.value)}
+                    placeholder="مثال: مطعم البركة أو أ/ محمد"
+                    className="w-full rounded-xl border border-gray-300 px-3.5 py-2 text-sm focus:outline-none focus:border-[#0b7a4b]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">
+                    رقم الهاتف / واتساب
+                  </label>
+                  <input
+                    type="tel"
+                    value={customerPhone}
+                    onChange={(e) => setCustomerPhone(e.target.value)}
+                    placeholder="01xxxxxxxxx"
+                    className="w-full rounded-xl border border-gray-300 px-3.5 py-2 text-sm focus:outline-none focus:border-[#0b7a4b]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">
+                    ملاحظات التوصيل
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={orderNotes}
+                    onChange={(e) => setOrderNotes(e.target.value)}
+                    placeholder="العنوان أو موعد الاستلام..."
+                    className="w-full rounded-xl border border-gray-300 px-3.5 py-2 text-sm focus:outline-none focus:border-[#0b7a4b]"
+                  />
+                </div>
+
+                {orderError && (
+                  <div className="rounded-xl bg-red-50 border border-red-200 p-3 text-xs text-red-700">
+                    {orderError}
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={submittingOrder}
+                  className="w-full bg-[#0b7a4b] hover:bg-[#09633c] disabled:opacity-60 text-white font-bold py-3 rounded-xl text-sm transition"
+                >
+                  {submittingOrder
+                    ? 'جاري إتمام عملية الشراء...'
+                    : `إتمام عملية الشراء (${totalAmount} ج.م)`}
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
