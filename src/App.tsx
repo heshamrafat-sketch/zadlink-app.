@@ -15,7 +15,10 @@ async function zadQuery(table: string, query = "", init: RequestInit = {}) {
       ...(init.headers || {}),
     },
   });
-  if (!res.ok) throw new Error(await res.text());
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(errText || `HTTP ${res.status}`);
+  }
   return init.method === "DELETE" ? null : res.json();
 }
 
@@ -40,9 +43,18 @@ interface ProductItem {
   image: string;
 }
 
-const CART_STORAGE_KEY = 'zadlink_cart_v1';
+interface OrderSummary {
+  itemsCount: number;
+  total: number;
+  type: CustomerType;
+  savedLocally?: boolean;
+  reason?: string;
+}
 
-// 1. الأقسام الرئيسية (تظهر أولاً في واجهة المتجر)
+const CART_STORAGE_KEY = 'zadlink_cart_v1';
+const PENDING_ORDERS_KEY = 'zadlink_pending_orders';
+let memoryCartFallback: Record<number, number> = {};
+
 const CATEGORIES: CategoryItem[] = [
   {
     id: 'oils-basics',
@@ -106,7 +118,6 @@ const CATEGORIES: CategoryItem[] = [
   },
 ];
 
-// 2. المنتجات الداخلية لكل قسم (أسعار استرشادية تقريبية قابلة للتعديل)
 const PRODUCTS: ProductItem[] = [
   {
     id: 1,
@@ -482,24 +493,50 @@ const PRODUCTS: ProductItem[] = [
   },
 ];
 
+function sanitizeCartObject(source: unknown): Record<number, number> {
+  if (!source || typeof source !== 'object') return {};
+  const clean: Record<number, number> = {};
+  for (const [k, v] of Object.entries(source as Record<string, unknown>)) {
+    const idNum = Number(k);
+    const qtyNum = Number(v);
+    if (!Number.isNaN(idNum) && qtyNum > 0) {
+      clean[idNum] = qtyNum;
+    }
+  }
+  return clean;
+}
+
 function loadSavedCart(): Record<number, number> {
   try {
-    const raw = localStorage.getItem(CART_STORAGE_KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== 'object') return {};
-    const clean: Record<number, number> = {};
-    for (const [k, v] of Object.entries(parsed)) {
-      const idNum = Number(k);
-      const qtyNum = Number(v);
-      if (!Number.isNaN(idNum) && qtyNum > 0) {
-        clean[idNum] = qtyNum;
-      }
-    }
-    return clean;
+    const raw = window.localStorage.getItem(CART_STORAGE_KEY);
+    if (!raw) return sanitizeCartObject(memoryCartFallback);
+    const parsed = sanitizeCartObject(JSON.parse(raw));
+    memoryCartFallback = parsed;
+    return parsed;
   } catch {
-    return {};
+    return sanitizeCartObject(memoryCartFallback);
   }
+}
+
+function saveCartToStorage(nextCart: Record<number, number>) {
+  const clean = sanitizeCartObject(nextCart);
+  memoryCartFallback = clean;
+  try {
+    window.localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(clean));
+  } catch {}
+}
+
+function savePendingOrderLocally(orderRecord: Record<string, any>) {
+  try {
+    const existingRaw = window.localStorage.getItem(PENDING_ORDERS_KEY);
+    const existing = existingRaw ? JSON.parse(existingRaw) : [];
+    const list = Array.isArray(existing) ? existing : [];
+    list.push({
+      created_at: new Date().toISOString(),
+      ...orderRecord,
+    });
+    window.localStorage.setItem(PENDING_ORDERS_KEY, JSON.stringify(list));
+  } catch {}
 }
 
 const getPriceByCustomer = (product: ProductItem, customerType: CustomerType) =>
@@ -519,21 +556,13 @@ export function App() {
   const [orderNotes, setOrderNotes] = useState('');
   const [submittingOrder, setSubmittingOrder] = useState(false);
   const [orderError, setOrderError] = useState<string | null>(null);
-  const [orderSent, setOrderSent] = useState<{
-    itemsCount: number;
-    total: number;
-    type: CustomerType;
-    savedLocally?: boolean;
-    reason?: string;
-  } | null>(null);
+  const [orderSent, setOrderSent] = useState<OrderSummary | null>(null);
   const [storeName, setStoreName] = useState('زاد لينك | ZadLink');
   const [account, setAccount] = useState<Record<string, any> | null>(null);
   const [productsList, setProductsList] = useState<ProductItem[]>(PRODUCTS);
 
   React.useEffect(() => {
-    try {
-      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
-    } catch {}
+    saveCartToStorage(cart);
   }, [cart]);
 
   React.useEffect(() => {
@@ -646,509 +675,8 @@ export function App() {
   const addToCart = (productId: number) => {
     setOrderSent(null);
     setOrderError(null);
-    setCart((prev) => ({
-      ...prev,
-      [productId]: (prev[productId] || 0) + 1,
-    }));
-  };
-
-  const updateCartQty = (productId: number, nextQty: number) => {
-    setOrderError(null);
     setCart((prev) => {
-      const copy = { ...prev };
-      if (nextQty <= 0) {
-        delete copy[productId];
-      } else {
-        copy[productId] = nextQty;
-      }
-      return copy;
-    });
-  };
-
-  const clearCart = () => {
-    setCart({});
-    setOrderError(null);
-  };
-
-  const openOrderDrawer = () => {
-    setOrderError(null);
-    setCartOpen(true);
-  };
-
-  const handleCheckout = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    if (cartEntries.length === 0 || submittingOrder) return;
-
-    setSubmittingOrder(true);
-    setOrderError(null);
-
-    const orderItems = cartEntries.map(({ product, qty, unitPrice }) => ({
-      product_id: product.id,
-      name: product.name,
-      qty,
-      unit_price: unitPrice,
-    }));
-
-    const payload: Record<string, any> = {
-      customer_type: customerType,
-      customer_name: customerName.trim() || null,
-      customer_phone: customerPhone.trim() || null,
-      notes: orderNotes.trim() || null,
-      total_amount: totalAmount,
-      items_count: totalItems,
-      items: orderItems,
-    };
-
-    if (account?.id !== undefined && account?.id !== null) {
-      payload.account_id = account.id;
-    }
-
-    const summary = {
-      itemsCount: totalItems,
-      total: totalAmount,
-      type: customerType,
-    };
-
-    try {
-      await zadQuery("orders", "", {
-        method: "POST",
-        body: JSON.stringify(payload),
-      });
-
-      setCart({});
-      setCustomerNotes('');
-      setCartOpen(false);
-      setOrderSent(summary);
-    } catch (err: any) {
-      const msg = err?.message ? String(err.message) : 'Failed to fetch';
-      try {
-        const existing = JSON.parse(localStorage.getItem('zadlink_pending_orders') || '[]');
-        existing.push({
-          created_at: new Date().toISOString(),
-          ...payload,
-        });
-        localStorage.setItem('zadlink_pending_orders', JSON.stringify(existing));
-      } catch {}
-
-      setCart({});
-      setCustomerNotes('');
-      setCartOpen(false);
-      setOrderSent({
-        ...summary,
-        savedLocally: true,
-        reason: msg,
-      });
-    } finally {
-      setSubmittingOrder(false);
-    }
-  };
-
-  return (
-    <div dir="rtl" className="min-h-screen bg-[#f6f8f7] text-gray-900 pb-14">
-      <header className="sticky top-0 z-20 bg-white border-b border-gray-200 px-4 py-3 shadow-sm">
-        <div className="max-w-4xl mx-auto flex items-center justify-between gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              setSelectedCategoryId(null);
-              setSearchQuery('');
-            }}
-            className="flex items-center gap-2.5 text-right min-w-0"
-          >
-            <span className="w-10 h-10 rounded-xl bg-[#0b7a4b] text-white font-bold text-xl flex items-center justify-center shrink-0">
-              ز
-            </span>
-            <div className="min-w-0">
-              <div className="font-bold text-base leading-tight truncate">{storeName}</div>
-              <div className="text-xs text-[#0b7a4b] truncate">
-                {customerType === 'wholesale' ? 'أسعار الجملة للتجار والمطاعم' : 'أسعار القطاعي للأفراد'}
-              </div>
-            </div>
-          </button>
-
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={openOrderDrawer}
-              className="bg-gray-100 hover:bg-gray-200 text-gray-900 font-semibold px-3 py-2.5 rounded-xl text-xs sm:text-sm border border-gray-300"
-            >
-              السلة ({totalItems})
-            </button>
-
-            <button
-              type="button"
-              onClick={openOrderDrawer}
-              className="bg-[#0b7a4b] hover:bg-[#09633c] text-white font-bold px-3.5 py-2.5 rounded-xl text-xs sm:text-sm flex items-center gap-1.5"
-            >
-              <span>استكمال الطلب</span>
-              {totalAmount > 0 && <span>• {totalAmount} ج.م</span>}
-            </button>
-          </div>
-        </div>
-
-        <div className="max-w-4xl mx-auto mt-3 flex flex-col sm:flex-row gap-2.5">
-          <div className="grid grid-cols-2 rounded-xl bg-gray-100 p-1 border border-gray-200 shrink-0">
-            <button
-              type="button"
-              onClick={() => setCustomerType('wholesale')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                customerType === 'wholesale'
-                  ? 'bg-[#0b7a4b] text-white shadow-2xs'
-                  : 'text-gray-700 hover:text-gray-900'
-              }`}
-            >
-              تاجر (جملة)
-            </button>
-            <button
-              type="button"
-              onClick={() => setCustomerType('retail')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                customerType === 'retail'
-                  ? 'bg-[#0b7a4b] text-white shadow-2xs'
-                  : 'text-gray-700 hover:text-gray-900'
-              }`}
-            >
-              فرد (قطاعي)
-            </button>
-          </div>
-
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="ابحث عن منتج أو عبوة..."
-            className="flex-1 rounded-xl border border-gray-300 bg-[#f9fbfa] px-4 py-2 text-sm focus:outline-none focus:border-[#0b7a4b]"
-          />
-        </div>
-      </header>
-
-      <main className="max-w-4xl mx-auto px-4 mt-5">
-        {orderSent && (
-          <div className="mb-4 rounded-2xl bg-emerald-50 border border-emerald-200 p-4 text-emerald-900 text-sm flex items-center justify-between gap-3">
-            <div>
-              <div className="font-bold">
-                {orderSent.savedLocally
-                  ? 'تم تسجيل طلبك وحفظه مؤقتاً على الجهاز!'
-                  : 'تم إرسال طلبك بنجاح إلى قاعدة البيانات!'}
-              </div>
-              <div className="text-xs mt-0.5">
-                عدد الأصناف: {orderSent.itemsCount} • الإجمالي: {orderSent.total} ج.م • النظام:{' '}
-                {orderSent.type === 'wholesale' ? 'تاجر (جملة)' : 'فرد (قطاعي)'}
-              </div>
-              {orderSent.savedLocally && orderSent.reason && (
-                <div className="text-[11px] text-amber-800 mt-1">
-                  ملاحظة اتصال السيرفر: {orderSent.reason}
-                </div>
-              )}
-            </div>
-            <button
-              type="button"
-              onClick={() => setOrderSent(null)}
-              className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-900"
-            >
-              إغلاق
-            </button>
-          </div>
-        )}
-
-        {searchQuery.trim() || selectedCategoryId ? (
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h1 className="text-lg font-bold text-gray-900">
-                  {searchQuery.trim()
-                    ? `نتائج البحث عن: "${searchQuery.trim()}"`
-                    : currentCategory?.title}
-                </h1>
-                {!searchQuery.trim() && currentCategory && (
-                  <p className="text-xs text-gray-500 mt-0.5">{currentCategory.subtitle}</p>
-                )}
-              </div>
-
-              <button
-                type="button"
-                onClick={() => {
-                  setSelectedCategoryId(null);
-                  setSearchQuery('');
-                }}
-                className="rounded-xl border border-gray-300 bg-white px-3.5 py-2 text-xs font-semibold text-gray-800 hover:bg-gray-50"
-              >
-                ← الأقسام الرئيسية
-              </button>
-            </div>
-
-            {visibleProducts.length === 0 ? (
-              <div className="rounded-2xl bg-white border border-gray-200 p-8 text-center text-gray-500 text-sm">
-                لا توجد منتجات مطابقة حالياً.
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {visibleProducts.map((product) => {
-                  const activePrice = getPriceByCustomer(product, customerType);
-                  const activeUnit = getUnitByCustomer(product, customerType);
-                  const secondaryPrice =
-                    customerType === 'wholesale' ? product.retailPrice : product.wholesalePrice;
-                  const qtyInCart = cart[product.id] || 0;
-
-                  return (
-                    <div
-                      key={product.id}
-                      className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-xs flex flex-col justify-between"
-                    >
-                      <div>
-                        <div className="h-48 w-full bg-gray-100 overflow-hidden">
-                          <img
-                            src={product.image}
-                            alt={product.name}
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-
-                        <div className="p-4">
-                          <div className="flex items-center justify-between gap-2 mb-1.5">
-                            <span className="text-xs text-gray-500">
-                              {CATEGORIES.find((c) => c.id === product.categoryId)?.title}
-                            </span>
-                            {product.badge && (
-                              <span className="text-xs font-semibold bg-amber-100 text-amber-800 px-2.5 py-0.5 rounded-full">
-                                {product.badge}
-                              </span>
-                            )}
-                          </div>
-
-                          <h2 className="font-bold text-base text-gray-900">{product.name}</h2>
-                          <p className="text-xs text-gray-700 mt-1 font-medium">{activeUnit}</p>
-                          <p className="text-[11px] text-gray-500 mt-0.5">
-                            {customerType === 'wholesale'
-                              ? `القطاعي: ${secondaryPrice > 0 ? `${secondaryPrice} ج.م` : 'حسب السعر'}`
-                              : `الجملة: ${secondaryPrice > 0 ? `${secondaryPrice} ج.م` : 'حسب السعر'}`}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="px-4 pb-4 pt-2 flex items-center justify-between gap-2 border-t border-gray-100">
-                        {qtyInCart > 0 ? (
-                          <div className="flex items-center gap-2 bg-gray-100 rounded-xl p-1">
-                            <button
-                              type="button"
-                              onClick={() => updateCartQty(product.id, qtyInCart + 1)}
-                              className="w-8 h-8 rounded-lg bg-[#0b7a4b] text-white font-bold text-base leading-none"
-                            >
-                              +
-                            </button>
-                            <span className="min-w-6 text-center text-sm font-bold">{qtyInCart}</span>
-                            <button
-                              type="button"
-                              onClick={() => updateCartQty(product.id, qtyInCart - 1)}
-                              className="w-8 h-8 rounded-lg bg-white border border-gray-300 text-gray-800 font-bold text-base leading-none"
-                            >
-                              -
-                            </button>
-                          </div>
-                        ) : (
-                          <button
-                            type="button"
-                            onClick={() => addToCart(product.id)}
-                            className="bg-gray-900 hover:bg-black text-white text-sm font-semibold px-4 py-2 rounded-xl"
-                          >
-                            أضف للطلب
-                          </button>
-                        )}
-
-                        <div className="font-bold text-base text-gray-900">
-                          {activePrice > 0 ? `${activePrice} ج.م` : 'حسب السعر'}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        ) : (
-          <div>
-            <div className="mb-4">
-              <h1 className="text-lg font-bold text-gray-900">الأقسام الرئيسية</h1>
-              <p className="text-xs text-gray-500 mt-0.5">
-                اختر القسم لاستعراض المنتجات المتاحة بالأسعار والعبوات ({customerType === 'wholesale' ? 'جملة' : 'قطاعي'})
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {CATEGORIES.map((category) => {
-                const count = productsList.filter((p) => p.categoryId === category.id).length;
-                return (
-                  <button
-                    key={category.id}
-                    type="button"
-                    onClick={() => setSelectedCategoryId(category.id)}
-                    className="group text-right bg-white rounded-2xl border border-gray-200 hover:border-[#0b7a4b] overflow-hidden shadow-xs transition"
-                  >
-                    <div className="h-44 w-full bg-gray-100 overflow-hidden">
-                      <img
-                        src={category.image}
-                        alt={category.title}
-                        className="w-full h-full object-cover group-hover:scale-[1.02] transition duration-200"
-                      />
-                    </div>
-
-                    <div className="p-4">
-                      <div className="flex items-center justify-between gap-2">
-                        <h2 className="font-bold text-base text-gray-900">{category.title}</h2>
-                        <span className="text-xs font-semibold bg-emerald-50 text-[#0b7a4b] px-2.5 py-1 rounded-full">
-                          {count} صنف
-                        </span>
-                      </div>
-                      <p className="text-xs text-gray-600 mt-1.5 line-clamp-2">{category.subtitle}</p>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-      </main>
-
-      {cartOpen && (
-        <div className="fixed inset-0 z-40 bg-black/50 flex justify-end">
-          <div className="w-full max-w-md bg-white h-full overflow-y-auto p-5 flex flex-col justify-between shadow-2xl">
-            <div>
-              <div className="flex items-center justify-between border-b border-gray-200 pb-3.5">
-                <div>
-                  <h2 className="font-bold text-lg text-gray-900">سلة الطلب واستكمال الطلب</h2>
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    النظام الحالي: {customerType === 'wholesale' ? 'تاجر (جملة)' : 'فرد (قطاعي)'}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setCartOpen(false)}
-                  className="rounded-xl border border-gray-300 px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50"
-                >
-                  إغلاق ✕
-                </button>
-              </div>
-
-              {cartEntries.length === 0 ? (
-                <div className="py-12 text-center text-gray-500 text-sm">
-                  السلة فارغة حالياً. اختر قسماً وأضف المنتجات التي تريد طلبها.
-                </div>
-              ) : (
-                <div className="mt-4 space-y-3">
-                  {cartEntries.map(({ product, qty, unitPrice, lineTotal }) => (
-                    <div
-                      key={product.id}
-                      className="rounded-2xl border border-gray-200 p-3 flex items-center justify-between gap-3 bg-[#f9fbfa]"
-                    >
-                      <div className="min-w-0 flex-1">
-                        <div className="font-bold text-sm text-gray-900 truncate">{product.name}</div>
-                        <div className="text-xs text-gray-500 mt-0.5">
-                          {getUnitByCustomer(product, customerType)} • {unitPrice} ج.م
-                        </div>
-                        <div className="text-xs font-bold text-[#0b7a4b] mt-1">
-                          الإجمالي: {lineTotal} ج.م
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-1.5 shrink-0">
-                        <button
-                          type="button"
-                          onClick={() => updateCartQty(product.id, qty + 1)}
-                          className="w-7 h-7 rounded-lg bg-[#0b7a4b] text-white font-bold text-sm"
-                        >
-                          +
-                        </button>
-                        <span className="min-w-5 text-center text-xs font-bold">{qty}</span>
-                        <button
-                          type="button"
-                          onClick={() => updateCartQty(product.id, qty - 1)}
-                          className="w-7 h-7 rounded-lg bg-white border border-gray-300 text-gray-800 font-bold text-sm"
-                        >
-                          -
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-
-                  <div className="flex items-center justify-between pt-2">
-                    <button
-                      type="button"
-                      onClick={clearCart}
-                      className="text-xs font-semibold text-red-600 hover:underline"
-                    >
-                      تفريغ السلة
-                    </button>
-                    <div className="text-sm font-bold text-gray-900">
-                      إجمالي الطلب ({totalItems} عنصر): {totalAmount} ج.م
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {cartEntries.length > 0 && (
-              <form onSubmit={handleCheckout} className="mt-6 pt-4 border-t border-gray-200 space-y-3">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">
-                    الاسم / اسم المنشأة
-                  </label>
-                  <input
-                    type="text"
-                    value={customerName}
-                    onChange={(e) => setCustomerName(e.target.value)}
-                    placeholder="مثال: مطعم البركة أو أ/ محمد"
-                    className="w-full rounded-xl border border-gray-300 px-3.5 py-2 text-sm focus:outline-none focus:border-[#0b7a4b]"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">
-                    رقم الهاتف / واتساب
-                  </label>
-                  <input
-                    type="tel"
-                    value={customerPhone}
-                    onChange={(e) => setCustomerPhone(e.target.value)}
-                    placeholder="01xxxxxxxxx"
-                    className="w-full rounded-xl border border-gray-300 px-3.5 py-2 text-sm focus:outline-none focus:border-[#0b7a4b]"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">
-                    ملاحظات التوصيل
-                  </label>
-                  <textarea
-                    rows={2}
-                    value={orderNotes}
-                    onChange={(e) => setOrderNotes(e.target.value)}
-                    placeholder="العنوان أو موعد الاستلام..."
-                    className="w-full rounded-xl border border-gray-300 px-3.5 py-2 text-sm focus:outline-none focus:border-[#0b7a4b]"
-                  />
-                </div>
-
-                {orderError && (
-                  <div className="rounded-xl bg-red-50 border border-red-200 p-3 text-xs text-red-700">
-                    {orderError}
-                  </div>
-                )}
-
-                <button
-                  type="submit"
-                  disabled={submittingOrder}
-                  className="w-full bg-[#0b7a4b] hover:bg-[#09633c] disabled:opacity-60 text-white font-bold py-3 rounded-xl text-sm transition"
-                >
-                  {submittingOrder
-                    ? 'جاري استكمال الطلب...'
-                    : `استكمال الطلب (${totalAmount} ج.م)`}
-                </button>
-              </form>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-export default App;
+      const next = {
+        ...prev,
+        [productId]: (prev[productId] || 0) + 1,
+      
