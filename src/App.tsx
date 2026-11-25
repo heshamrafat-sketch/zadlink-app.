@@ -14,11 +14,12 @@ interface Product {
 
 const PRODUCTS: Product[] = [
   { id: 1, name: 'أرز بسمتي هندي درجة أولى', category: 'حبوب وأرز', unit: 'شيكارة 25 كجم', price: 1450, badge: 'الأكثر طلباً', image: './rice.jpg.png' },
-  { id: 2, name: 'زيت طعام نقي عباد الشمس', category: 'زيوت وسمن', unit: 'جركن 18 لتر', price: 1280, badge: 'عرض مميز' },
-  { id: 3, name: 'مكرونة متنوعة جملة', category: 'مكرونات', unit: 'كرتونة 20 كيس', price: 360 },
-  { id: 4, name: 'سكر أبيض مكرر ناعم', category: 'أساسيات', unit: 'شيكارة 50 كجم', price: 1750 },
-  { id: 5, name: 'صلصة طماطم مركزة', category: 'معلبات', unit: 'كرتونة 24 عبوة', price: 540 },
-  { id: 6, name: 'دقيق فاخر للمخبوزات والحلويات', category: 'حبوب وأرز', unit: 'شيكارة 25 كجم', price: 620 },
+  { id: 2, name: 'زيت طعام نقي عباد الشمس', category: 'زيوت وسمن', unit: 'جركن 18 لتر', price: 1280, badge: 'عرض مميز', image: "./oil.png.png" },
+  { id: 3, name: 'مكرونة متنوعة جملة', category: 'مكرونات', unit: 'كرتونة 20 كيس', price: 360, image: "./pasta.png.jpg" },
+  { id: 4, name: 'سكر أبيض مكرر ناعم', category: 'أساسيات', unit: 'شيكارة 50 كجم', price: 
+1750, image: "./sugar.png.jpg" },
+  { id: 5, name: 'صلصة طماطم مركزة', category: 'معلبات', unit: 'كرتونة 24 عبوة', price: 540, image: "./tomato-paste.png.jpg" },
+  { id: 6, name: 'دقيق فاخر للمخبوزات والحلويات', category: 'حبوب وأرز', unit: 'شيكارة 25 كجم', price: 620 , image: "./flour.png.jpg"},
 ];
 
 const CATEGORIES = ['الكل', 'حبوب وأرز', 'زيوت وسمن', 'مكرونات', 'أساسيات', 'معلبات'];
