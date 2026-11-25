@@ -679,4 +679,290 @@ export function App() {
       const next = {
         ...prev,
         [productId]: (prev[productId] || 0) + 1,
-      
+      };
+      saveCartToStorage(next);
+      return next;
+    });
+  };
+
+  const updateCartQty = (productId: number, nextQty: number) => {
+    setOrderError(null);
+    setCart((prev) => {
+      const copy = { ...prev };
+      if (nextQty <= 0) {
+        delete copy[productId];
+      } else {
+        copy[productId] = nextQty;
+      }
+      saveCartToStorage(copy);
+      return copy;
+    });
+  };
+
+  const clearCart = () => {
+    setCart({});
+    saveCartToStorage({});
+    setOrderError(null);
+  };
+
+  const openOrderDrawer = () => {
+    setOrderError(null);
+    setCart((prev) => (Object.keys(prev).length > 0 ? prev : loadSavedCart()));
+    setCartOpen(true);
+  };
+
+  const handleCheckout = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (cartEntries.length === 0 || submittingOrder) return;
+
+    setSubmittingOrder(true);
+    setOrderError(null);
+
+    const orderItems = cartEntries.map(({ product, qty, unitPrice }) => ({
+      product_id: product.id,
+      name: product.name,
+      qty,
+      unit_price: unitPrice,
+    }));
+
+    const payload: Record<string, any> = {
+      customer_type: customerType,
+      customer_name: customerName.trim() || null,
+      customer_phone: customerPhone.trim() || null,
+      notes: orderNotes.trim() || null,
+      total_amount: totalAmount,
+      items_count: totalItems,
+      items: orderItems,
+    };
+
+    if (account?.id !== undefined && account?.id !== null) {
+      payload.account_id = account.id;
+    }
+
+    const summary: OrderSummary = {
+      itemsCount: totalItems,
+      total: totalAmount,
+      type: customerType,
+    };
+
+    try {
+      await zadQuery("orders", "", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+
+      clearCart();
+      setCustomerNotes('');
+      setCartOpen(false);
+      setOrderSent(summary);
+    } catch (err: any) {
+      const msg = err?.message ? String(err.message) : 'Failed to fetch';
+      savePendingOrderLocally(payload);
+
+      clearCart();
+      setCustomerNotes('');
+      setCartOpen(false);
+      setOrderSent({
+        ...summary,
+        savedLocally: true,
+        reason: msg,
+      });
+    } finally {
+      setSubmittingOrder(false);
+    }
+  };
+
+  return (
+    <div dir="rtl" className="min-h-screen bg-[#f6f8f7] text-gray-900 pb-14">
+      <header className="sticky top-0 z-20 bg-white border-b border-gray-200 px-4 py-3 shadow-sm">
+        <div className="max-w-4xl mx-auto flex items-center justify-between gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setSelectedCategoryId(null);
+              setSearchQuery('');
+            }}
+            className="flex items-center gap-2.5 text-right min-w-0"
+          >
+            <span className="w-10 h-10 rounded-xl bg-[#0b7a4b] text-white font-bold text-xl flex items-center justify-center shrink-0">
+              ز
+            </span>
+            <div className="min-w-0">
+              <div className="font-bold text-base leading-tight truncate">{storeName}</div>
+              <div className="text-xs text-[#0b7a4b] truncate">
+                {customerType === 'wholesale' ? 'أسعار الجملة للتجار والمطاعم' : 'أسعار القطاعي للأفراد'}
+              </div>
+            </div>
+          </button>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={openOrderDrawer}
+              className="bg-gray-100 hover:bg-gray-200 text-gray-900 font-semibold px-3 py-2.5 rounded-xl text-xs sm:text-sm border border-gray-300"
+            >
+              السلة ({totalItems})
+            </button>
+
+            <button
+              type="button"
+              onClick={openOrderDrawer}
+              className="bg-[#0b7a4b] hover:bg-[#09633c] text-white font-bold px-3.5 py-2.5 rounded-xl text-xs sm:text-sm flex items-center gap-1.5"
+            >
+              <span>استكمال الطلب</span>
+              {totalAmount > 0 && <span>• {totalAmount} ج.م</span>}
+            </button>
+          </div>
+        </div>
+
+        <div className="max-w-4xl mx-auto mt-3 flex flex-col sm:flex-row gap-2.5">
+          <div className="grid grid-cols-2 rounded-xl bg-gray-100 p-1 border border-gray-200 shrink-0">
+            <button
+              type="button"
+              onClick={() => setCustomerType('wholesale')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                customerType === 'wholesale'
+                  ? 'bg-[#0b7a4b] text-white shadow-2xs'
+                  : 'text-gray-700 hover:text-gray-900'
+              }`}
+            >
+              تاجر (جملة)
+            </button>
+            <button
+              type="button"
+              onClick={() => setCustomerType('retail')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                customerType === 'retail'
+                  ? 'bg-[#0b7a4b] text-white shadow-2xs'
+                  : 'text-gray-700 hover:text-gray-900'
+              }`}
+            >
+              فرد (قطاعي)
+            </button>
+          </div>
+
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="ابحث عن منتج أو عبوة..."
+            className="flex-1 rounded-xl border border-gray-300 bg-[#f9fbfa] px-4 py-2 text-sm focus:outline-none focus:border-[#0b7a4b]"
+          />
+        </div>
+      </header>
+
+      <main className="max-w-4xl mx-auto px-4 mt-5">
+        {orderSent && (
+          <div className="mb-4 rounded-2xl bg-emerald-50 border border-emerald-200 p-4 text-emerald-900 text-sm flex items-center justify-between gap-3">
+            <div>
+              <div className="font-bold">
+                {orderSent.savedLocally
+                  ? 'تم تسجيل طلبك وحفظه مؤقتاً على الجهاز!'
+                  : 'تم إرسال طلبك بنجاح إلى قاعدة البيانات!'}
+              </div>
+              <div className="text-xs mt-0.5">
+                عدد الأصناف: {orderSent.itemsCount} • الإجمالي: {orderSent.total} ج.م • النظام:{' '}
+                {orderSent.type === 'wholesale' ? 'تاجر (جملة)' : 'فرد (قطاعي)'}
+              </div>
+              {orderSent.savedLocally && orderSent.reason && (
+                <div className="text-[11px] text-amber-800 mt-1">
+                  ملاحظة اتصال السيرفر: {orderSent.reason}
+                </div>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => setOrderSent(null)}
+              className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-emerald-100 hover:bg-emerald-200 text-emerald-900"
+            >
+              إغلاق
+            </button>
+          </div>
+        )}
+
+        {searchQuery.trim() || selectedCategoryId ? (
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h1 className="text-lg font-bold text-gray-900">
+                  {searchQuery.trim()
+                    ? `نتائج البحث عن: "${searchQuery.trim()}"`
+                    : currentCategory?.title}
+                </h1>
+                {!searchQuery.trim() && currentCategory && (
+                  <p className="text-xs text-gray-500 mt-0.5">{currentCategory.subtitle}</p>
+                )}
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setSelectedCategoryId(null);
+                  setSearchQuery('');
+                }}
+                className="rounded-xl border border-gray-300 bg-white px-3.5 py-2 text-xs font-semibold text-gray-800 hover:bg-gray-50"
+              >
+                ← الأقسام الرئيسية
+              </button>
+            </div>
+
+            {visibleProducts.length === 0 ? (
+              <div className="rounded-2xl bg-white border border-gray-200 p-8 text-center text-gray-500 text-sm">
+                لا توجد منتجات مطابقة حالياً.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {visibleProducts.map((product) => {
+                  const activePrice = getPriceByCustomer(product, customerType);
+                  const activeUnit = getUnitByCustomer(product, customerType);
+                  const secondaryPrice =
+                    customerType === 'wholesale' ? product.retailPrice : product.wholesalePrice;
+                  const qtyInCart = cart[product.id] || 0;
+
+                  return (
+                    <div
+                      key={product.id}
+                      className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-xs flex flex-col justify-between"
+                    >
+                      <div>
+                        <div className="h-48 w-full bg-gray-100 overflow-hidden">
+                          <img
+                            src={product.image}
+                            alt={product.name}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+
+                        <div className="p-4">
+                          <div className="flex items-center justify-between gap-2 mb-1.5">
+                            <span className="text-xs text-gray-500">
+                              {CATEGORIES.find((c) => c.id === product.categoryId)?.title}
+                            </span>
+                            {product.badge && (
+                              <span className="text-xs font-semibold bg-amber-100 text-amber-800 px-2.5 py-0.5 rounded-full">
+                                {product.badge}
+                              </span>
+                            )}
+                          </div>
+
+                          <h2 className="font-bold text-base text-gray-900">{product.name}</h2>
+                          <p className="text-xs text-gray-700 mt-1 font-medium">{activeUnit}</p>
+                          <p className="text-[11px] text-gray-500 mt-0.5">
+                            {customerType === 'wholesale'
+                              ? `القطاعي: ${secondaryPrice > 0 ? `${secondaryPrice} ج.م` : 'حسب السعر'}`
+                              : `الجملة: ${secondaryPrice > 0 ? `${secondaryPrice} ج.م` : 'حسب السعر'}`}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="px-4 pb-4 pt-2 flex items-center justify-between gap-2 border-t border-gray-100">
+                        {qtyInCart > 0 ? (
+                          <div className="flex items-center gap-2 bg-gray-100 rounded-xl p-1">
+                            <button
+                              type="button"
+                              onClick={() => updateCartQty(product.id, qtyInCart + 1)}
+                              className="w-8 h-8 rounded-lg bg-[#0b7a4b] text-white font-bold text-base leading-none"
+                            >
+                              +
+                            </button>
+                            <span class
