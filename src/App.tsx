@@ -590,11 +590,36 @@ export function App() {
       [productId]: (prev[productId] || 0) + 1,
     }));
   };
-
   const handleCheckout = () => {
     if (totalItems === 0) return;
+    const orderItems = Object.entries(cart)
+      .map(([idStr, qty]) => {
+        const prod = productsList.find((p) => p.id === Number(idStr));
+        return prod
+          ? {
+              product_id: prod.id,
+              name: prod.name,
+              qty,
+              unit_price: getPriceByCustomer(prod, customerType),
+            }
+          : null;
+      })
+      .filter(Boolean);
+
+    zadQuery("orders", "", {
+      method: "POST",
+      body: JSON.stringify({
+        customer_type: customerType,
+        total_amount: totalAmount,
+        items_count: totalItems,
+        items: orderItems,
+      }),
+    }).catch(() => {});
+
     setOrderSent(true);
     setCart({});
+  };
+
   };
 
   return (
