@@ -1,3 +1,5 @@
+import React, { useMemo, useState } from 'react';
+
 const SUPABASE_URL = "https://asspfwcgvnveejobxrm.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_Eqym1DI9Vyp5zSliHweaRw_1cwRfIN9";
 
@@ -16,8 +18,6 @@ async function zadQuery(table: string, query = "", init: RequestInit = {}) {
   if (!res.ok) throw new Error(await res.text());
   return init.method === "DELETE" ? null : res.json();
 }
-
-import React, { useMemo, useState } from 'react';
 
 type CustomerType = 'retail' | 'wholesale';
 
@@ -39,6 +39,8 @@ interface ProductItem {
   badge?: string;
   image: string;
 }
+
+const CART_STORAGE_KEY = 'zadlink_cart_v1';
 
 // 1. الأقسام الرئيسية (تظهر أولاً في واجهة المتجر)
 const CATEGORIES: CategoryItem[] = [
@@ -480,6 +482,26 @@ const PRODUCTS: ProductItem[] = [
   },
 ];
 
+function loadSavedCart(): Record<number, number> {
+  try {
+    const raw = localStorage.getItem(CART_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return {};
+    const clean: Record<number, number> = {};
+    for (const [k, v] of Object.entries(parsed)) {
+      const idNum = Number(k);
+      const qtyNum = Number(v);
+      if (!Number.isNaN(idNum) && qtyNum > 0) {
+        clean[idNum] = qtyNum;
+      }
+    }
+    return clean;
+  } catch {
+    return {};
+  }
+}
+
 const getPriceByCustomer = (product: ProductItem, customerType: CustomerType) =>
   customerType === 'wholesale' ? product.wholesalePrice : product.retailPrice;
 
@@ -490,7 +512,7 @@ export function App() {
   const [customerType, setCustomerType] = useState<CustomerType>('wholesale');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [cart, setCart] = useState<Record<number, number>>({});
+  const [cart, setCart] = useState<Record<number, number>>(() => loadSavedCart());
   const [cartOpen, setCartOpen] = useState(false);
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
@@ -507,6 +529,12 @@ export function App() {
   const [storeName, setStoreName] = useState('زاد لينك | ZadLink');
   const [account, setAccount] = useState<Record<string, any> | null>(null);
   const [productsList, setProductsList] = useState<ProductItem[]>(PRODUCTS);
+
+  React.useEffect(() => {
+    try {
+      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
+    } catch {}
+  }, [cart]);
 
   React.useEffect(() => {
     zadQuery("store_settings", "select=*&limit=1")
@@ -557,11 +585,23 @@ export function App() {
     () =>
       Object.entries(cart)
         .map(([idStr, qty]) => {
-          const product = productsList.find((p) => p.id === Number(idStr));
-          if (!product || qty <= 0) return null;
-          const unitPrice = getPriceByCustomer(product, customerType);
+          const idNum = Number(idStr);
+          if (Number.isNaN(idNum) || qty <= 0) return null;
+          const found =
+            productsList.find((p) => p.id === idNum) ||
+            PRODUCTS.find((p) => p.id === idNum) || {
+              id: idNum,
+              categoryId: 'oils-basics',
+              name: `صنف رقم #${idNum}`,
+              retailUnit: 'قطاعي',
+              wholesaleUnit: 'جملة',
+              retailPrice: 0,
+              wholesalePrice: 0,
+              image: './oil.png.png',
+            };
+          const unitPrice = getPriceByCustomer(found, customerType);
           return {
-            product,
+            product: found,
             qty,
             unitPrice,
             lineTotal: unitPrice * qty,
@@ -628,6 +668,11 @@ export function App() {
   const clearCart = () => {
     setCart({});
     setOrderError(null);
+  };
+
+  const openOrderDrawer = () => {
+    setOrderError(null);
+    setCartOpen(true);
   };
 
   const handleCheckout = async (e?: React.FormEvent) => {
@@ -701,37 +746,44 @@ export function App() {
   return (
     <div dir="rtl" className="min-h-screen bg-[#f6f8f7] text-gray-900 pb-14">
       <header className="sticky top-0 z-20 bg-white border-b border-gray-200 px-4 py-3 shadow-sm">
-        <div className="max-w-4xl mx-auto flex items-center justify-between gap-3">
+        <div className="max-w-4xl mx-auto flex items-center justify-between gap-2">
           <button
             type="button"
             onClick={() => {
               setSelectedCategoryId(null);
               setSearchQuery('');
             }}
-            className="flex items-center gap-2.5 text-right"
+            className="flex items-center gap-2.5 text-right min-w-0"
           >
-            <span className="w-10 h-10 rounded-xl bg-[#0b7a4b] text-white font-bold text-xl flex items-center justify-center">
+            <span className="w-10 h-10 rounded-xl bg-[#0b7a4b] text-white font-bold text-xl flex items-center justify-center shrink-0">
               ز
             </span>
-            <div>
-              <div className="font-bold text-base leading-tight">{storeName}</div>
-              <div className="text-xs text-[#0b7a4b]">
+            <div className="min-w-0">
+              <div className="font-bold text-base leading-tight truncate">{storeName}</div>
+              <div className="text-xs text-[#0b7a4b] truncate">
                 {customerType === 'wholesale' ? 'أسعار الجملة للتجار والمطاعم' : 'أسعار القطاعي للأفراد'}
               </div>
             </div>
           </button>
 
-          <button
-            type="button"
-            onClick={() => {
-              setOrderError(null);
-              setCartOpen(true);
-            }}
-            className="bg-[#0b7a4b] hover:bg-[#09633c] text-white font-semibold px-4 py-2.5 rounded-xl text-sm flex items-center gap-2 shrink-0"
-          >
-            <span>السلة والطلب ({totalItems})</span>
-            {totalAmount > 0 && <span>• {totalAmount} ج.م</span>}
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={openOrderDrawer}
+              className="bg-gray-100 hover:bg-gray-200 text-gray-900 font-semibold px-3 py-2.5 rounded-xl text-xs sm:text-sm border border-gray-300"
+            >
+              السلة ({totalItems})
+            </button>
+
+            <button
+              type="button"
+              onClick={openOrderDrawer}
+              className="bg-[#0b7a4b] hover:bg-[#09633c] text-white font-bold px-3.5 py-2.5 rounded-xl text-xs sm:text-sm flex items-center gap-1.5"
+            >
+              <span>استكمال الطلب</span>
+              {totalAmount > 0 && <span>• {totalAmount} ج.م</span>}
+            </button>
+          </div>
         </div>
 
         <div className="max-w-4xl mx-auto mt-3 flex flex-col sm:flex-row gap-2.5">
@@ -957,14 +1009,13 @@ export function App() {
         )}
       </main>
 
-      {/* نافذة السلة وإتمام عملية الشراء */}
       {cartOpen && (
         <div className="fixed inset-0 z-40 bg-black/50 flex justify-end">
           <div className="w-full max-w-md bg-white h-full overflow-y-auto p-5 flex flex-col justify-between shadow-2xl">
             <div>
               <div className="flex items-center justify-between border-b border-gray-200 pb-3.5">
                 <div>
-                  <h2 className="font-bold text-lg text-gray-900">سلة الطلب وإتمام الشراء</h2>
+                  <h2 className="font-bold text-lg text-gray-900">سلة الطلب واستكمال الطلب</h2>
                   <p className="text-xs text-gray-500 mt-0.5">
                     النظام الحالي: {customerType === 'wholesale' ? 'تاجر (جملة)' : 'فرد (قطاعي)'}
                   </p>
@@ -1088,8 +1139,8 @@ export function App() {
                   className="w-full bg-[#0b7a4b] hover:bg-[#09633c] disabled:opacity-60 text-white font-bold py-3 rounded-xl text-sm transition"
                 >
                   {submittingOrder
-                    ? 'جاري إتمام عملية الشراء...'
-                    : `إتمام عملية الشراء (${totalAmount} ج.م)`}
+                    ? 'جاري استكمال الطلب...'
+                    : `استكمال الطلب (${totalAmount} ج.م)`}
                 </button>
               </form>
             )}
