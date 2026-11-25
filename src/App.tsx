@@ -511,6 +511,8 @@ export function App() {
   const [cart, setCart] = useState<Record<number, number>>({});
   const [orderSent, setOrderSent] = useState(false);
   const [storeName, setStoreName] = useState('زاد لينك | ZadLink');
+  const [account, setAccount] = useState<Record<string, any> | null>(null);
+
 
   React.useEffect(() => {
     zadQuery("store_settings", "select=*&limit=1")
@@ -545,6 +547,15 @@ export function App() {
       })
       .catch(() => {});
   }, []);
+React.useEffect(() => {
+  zadQuery("accounts", "select=*&limit=1")
+    .then((rows) => {
+      if (Array.isArray(rows) && rows.length > 0) {
+        setAccount(rows[0]);
+      }
+    })
+    .catch(() => {});
+}, []);
 
   const totalItems = useMemo(
     () => Object.values(cart).reduce((sum, qty) => sum + qty, 0),
