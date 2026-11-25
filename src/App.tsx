@@ -1,5 +1,20 @@
 const SUPABASE_URL = "https://asspfwcgvnveejobxrm.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "Sb_publishable_Eqym1DI9Vyp5zSliHweaRw_1cwRfIN9";
+async function zadQuery(table: string, query = "", init: RequestInit = {}) {
+  const url = `${SUPABASE_URL}/rest/v1/${table}${query ? `?${query}` : ""}`;
+  const res = await fetch(url, {
+    ...init,
+    headers: {
+      apikey: SUPABASE_PUBLISHABLE_KEY,
+      Authorization: `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
+      "Content-Type": "application/json",
+      Prefer: "return=representation",
+      ...(init.headers || {}),
+    },
+  });
+  if (!res.ok) throw new Error(await res.text());
+  return init.method === "DELETE" ? null : res.json();
+}
 
 import React, { useMemo, useState } from 'react';
 
