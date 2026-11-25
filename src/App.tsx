@@ -620,7 +620,6 @@ export function App() {
     setCart({});
   };
 
-  };
 
   return (
     <div dir="rtl" className="min-h-screen bg-[#f6f8f7] text-gray-900 pb-12">
