@@ -1,3 +1,6 @@
+const SUPABASE_URL = "https://asspfwcgvnveejobxrm.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY = "Sb_publishable_Eqym1DI9Vyp5zSliHweaRw_1cwRfIN9";
+
 import React, { useMemo, useState } from 'react';
 
 type CustomerType = 'retail' | 'wholesale';
