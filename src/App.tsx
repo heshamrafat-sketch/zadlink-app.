@@ -524,6 +524,27 @@ export function App() {
       })
       .catch(() => {});
   }, []);
+  const [productsList, setProductsList] = useState<ProductItem[]>(PRODUCTS);
+
+  React.useEffect(() => {
+    zadQuery("products", "select=*")
+      .then((rows) => {
+        if (!Array.isArray(rows) || rows.length === 0) return;
+        const mapped: ProductItem[] = rows.map((r: any, idx: number) => ({
+          id: Number(r.id ?? idx + 1),
+          categoryId: String(r.category_id ?? r.categoryId ?? 'oils-basics'),
+          name: String(r.name ?? ''),
+          retailUnit: String(r.retail_unit ?? r.retailUnit ?? 'قطاعي'),
+          wholesaleUnit: String(r.wholesale_unit ?? r.wholesaleUnit ?? 'جملة'),
+          retailPrice: Number(r.retail_price ?? r.retailPrice ?? 0),
+          wholesalePrice: Number(r.wholesale_price ?? r.wholesalePrice ?? 0),
+          badge: r.badge ? String(r.badge) : undefined,
+          image: String(r.image ?? './oil.png.png'),
+        })).filter((p) => p.name);
+        if (mapped.length > 0) setProductsList(mapped);
+      })
+      .catch(() => {});
+  }, []);
 
   const totalItems = useMemo(
     () => Object.values(cart).reduce((sum, qty) => sum + qty, 0),
@@ -533,7 +554,8 @@ export function App() {
   const totalAmount = useMemo(
     () =>
       Object.entries(cart).reduce((sum, [idStr, qty]) => {
-        const prod = PRODUCTS.find((p) => p.id === Number(idStr));
+                const prod = productsList.find((p) => p.id === Number(idStr));
+
         return sum + (prod ? getPriceByCustomer(prod, customerType) * qty : 0);
       }, 0),
     [cart, customerType]
