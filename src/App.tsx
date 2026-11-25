@@ -591,7 +591,7 @@ export function App() {
               ز
             </span>
             <div>
-              <div className="font-bold text-base leading-tight"{storeName}</div>
+             <div className="font-bold text-base leading-tight">{storeName}</div>
               <div className="text-xs text-[#0b7a4b]">
                 {customerType === 'wholesale' ? 'أسعار الجملة للتجار والمطاعم' : 'أسعار القطاعي للأفراد'}
               </div>
