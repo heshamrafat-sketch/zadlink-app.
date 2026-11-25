@@ -8,10 +8,12 @@ interface Product {
   unit: string;
   price: number;
   badge?: string;
+  image?: string;
+
 }
 
 const PRODUCTS: Product[] = [
-  { id: 1, name: 'أرز بسمتي هندي درجة أولى', category: 'حبوب وأرز', unit: 'شيكارة 25 كجم', price: 1450, badge: 'الأكثر طلباً' },
+  { id: 1, name: 'أرز بسمتي هندي درجة أولى', category: 'حبوب وأرز', unit: 'شيكارة 25 كجم', price: 1450, badge: 'الأكثر طلباً', image: './rice.jpg.png' },
   { id: 2, name: 'زيت طعام نقي عباد الشمس', category: 'زيوت وسمن', unit: 'جركن 18 لتر', price: 1280, badge: 'عرض مميز' },
   { id: 3, name: 'مكرونة متنوعة جملة', category: 'مكرونات', unit: 'كرتونة 20 كيس', price: 360 },
   { id: 4, name: 'سكر أبيض مكرر ناعم', category: 'أساسيات', unit: 'شيكارة 50 كجم', price: 1750 },
@@ -156,6 +158,14 @@ export function App() {
                 key={product.id}
                 className="bg-white rounded-2xl border border-stone-200 p-5 flex flex-col justify-between shadow-sm hover:shadow transition"
               >
+               {product.image && (
+  <img
+    src={product.image}
+    alt={product.name}
+    className="w-full h-40 object-cover rounded-xl mb-3"
+  />
+)}
+ 
                 <div className="space-y-2">
                   <div className="flex items-center justify-between gap-2">
                     <span className="text-xs font-medium text-stone-500">{product.category}</span>
