@@ -13,27 +13,21 @@ uses: actions/checkout@v4
 uses: actions/setup-node@v4
 with:
 node-version: 20
-​- name: Build
+​- name: Clean hidden characters
 run: |
-PKG_DIR=$(find . -maxdepth 3 -name "package.json" -not -path "/node_modules/" | head -n 1 | xargs dirname)
-echo "Using project directory: $PKG_DIR"
-cd "PKG_DIR"
-node -e "
-const fs = require('fs');
-const path = require('path');
-function walk(dir) {
-if (!fs.existsSync(dir)) return;
-for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-const full = path.join(dir, entry.name);
-if (entry.isDirectory() && entry.name !== 'node_modules') walk(full);
-else if (entry.isFile() && /\.(ts|tsx|js|jsx)/.test(entry.name)) {
-const raw = fs.readFileSync(full, 'utf8');
-const cleaned = raw.replace(/[\u200b\u200c\u200d\ufeff]/g, '');
-if (cleaned !== raw) fs.writeFileSync(full, cleaned, 'utf8');
-}
-}
-}
-walk('src');
-"
+python3 -c '
+import glob
+for path in glob.glob("/.ts", recursive=True) + glob.glob("/.js", recursive=True):
+if "node_modules" in path:
+continue
+with open(path, "r", encoding="utf-8", errors="ignore") as f:
+data = f.read()
+cleaned = data.replace("\u200b", "").replace("\ufeff", "").replace("\u200c", "").replace("\u200d", "")
+if cleaned != data:
+with open(path, "w", encoding="utf-8") as f:
+f.write(cleaned)
+'
+​- name: Install and Build
+run: |
 npm ci || npm install
 npm run build
