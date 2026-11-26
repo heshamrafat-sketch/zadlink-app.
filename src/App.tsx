@@ -1,11 +1,28 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 
 // إعدادات الاتصال بقاعدة بيانات Supabase
 const SUPABASE_URL = 'https://asspfwcgvnveejobxrm.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_Eqym1DI9Vyp5zSliHweaRw_1cwRfIN9';
 
-// تعريف أنواع البيانات للمنتجات والعملاء وعناصر السلة
+// أرقام طرق الدفع المعتمدة
+const INSTAPAY_NUMBER = '01224966506';
+const WALLET_NUMBER = '01096549960';
+
+// تعريف أنواع البيانات للمنصة
 type CustomerType = 'wholesale' | 'retail';
+type PaymentMethod = 'instapay' | 'wallet';
+type DeliveryMode = 'delivery' | 'pickup';
+type OrderStage = 'received' | 'preparing' | 'on_the_way' | 'delivered';
+
+interface MerchantStore {
+  id: string;
+  name: string;
+  zone: string;
+  prepTime: string;
+  courierName: string;
+  deliveryFee: number;
+  rating: string;
+}
 
 interface Product {
   id: number;
@@ -17,6 +34,7 @@ interface Product {
   description: string;
   image: string;
   emoji: string;
+  merchantId: string;
 }
 
 interface CartItem {
@@ -24,7 +42,61 @@ interface CartItem {
   quantity: number;
 }
 
-// قائمة المنتجات المرفقة مع أسعار الجملة والقطاعي
+interface ActiveOrderTracking {
+  id: string;
+  merchantName: string;
+  courierName: string;
+  deliveryMode: DeliveryMode;
+  paymentMethod: PaymentMethod;
+  totalWithDelivery: number;
+  stage: OrderStage;
+}
+
+interface ToastState {
+  text: string;
+  error: boolean;
+}
+
+// متاجر وفروع التوريد المرتبطة بالدليفري
+const MERCHANTS: MerchantStore[] = [
+  {
+    id: 'zad-hub-1',
+    name: 'فرع زاد لينك الرئيسي للجملة والقطاعي',
+    zone: 'قطاع التوريد السريع',
+    prepTime: '15 - 25 دقيقة',
+    courierName: 'كابتن طارق — دليفري زاد لينك',
+    deliveryFee: 20,
+    rating: '4.9',
+  },
+  {
+    id: 'zad-fresh-2',
+    name: 'مخزن الطازج والبقالة اليومية',
+    zone: 'توريد الأغذية والطازج',
+    prepTime: '10 - 20 دقيقة',
+    courierName: 'كابتن كريم — أسطول التوصيل',
+    deliveryFee: 15,
+    rating: '4.8',
+  },
+  {
+    id: 'zad-home-3',
+    name: 'مركز مستلزمات البيت والمنظفات',
+    zone: 'تجهيز الطلبات المنزلية والتجار',
+    prepTime: '20 - 30 دقيقة',
+    courierName: 'كابتن محمود — دليفري سريع',
+    deliveryFee: 25,
+    rating: '4.9',
+  },
+];
+
+// مراحل تتبع الطلب بأسلوب منصات الطلبات
+const ORDER_STAGES: { key: OrderStage; label: string; desc: string }[] = [
+  { key: 'received', label: 'تم استلام الطلب', desc: 'تم تسجيل طلبك وإرساله للتاجر' },
+  { key: 'preparing', label: 'التاجر يجهز الطلب', desc: 'جاري فرز وتغليف الأصناف المطلوبة' },
+  { key: 'on_the_way', label: 'الدليفري في الطريق', desc: 'مندوب التوصيل متجه لتسليم الطلب' },
+  { key: 'delivered', label: 'تم التسليم', desc: 'اكتملت عملية التوصيل بنجاح' },
+];
+
+// قائمة المنتجات والصور المرفقة مع أسعار الجملة والقطاعي
 const PRODUCTS: Product[] = [
   {
     id: 1,
@@ -34,8 +106,9 @@ const PRODUCTS: Product[] = [
     retailPrice: 32,
     unit: 'كجم',
     description: 'أرز مصري نقي مناسب للبيت والسوبر ماركت والتجار.',
-    image: '1000250092.jpg',
+    image: './1000250092.jpg',
     emoji: '🌾',
+    merchantId: 'zad-hub-1',
   },
   {
     id: 2,
@@ -45,8 +118,9 @@ const PRODUCTS: Product[] = [
     retailPrice: 80,
     unit: 'عبوة',
     description: 'زيوت قلي وطهي ومعلبات غذائية بتوريد مستمر.',
-    image: '1000250093.jpg',
+    image: './1000250093.jpg',
     emoji: '🫙',
+    merchantId: 'zad-hub-1',
   },
   {
     id: 3,
@@ -56,8 +130,9 @@ const PRODUCTS: Product[] = [
     retailPrice: 24,
     unit: 'كجم',
     description: 'أصناف طازجة يومياً للمنازل والمطاعم والمتاجر.',
-    image: '1000250094.jpg',
+    image: './1000250094.jpg',
     emoji: '🛒',
+    merchantId: 'zad-fresh-2',
   },
   {
     id: 4,
@@ -67,8 +142,9 @@ const PRODUCTS: Product[] = [
     retailPrice: 58,
     unit: 'عبوة',
     description: 'مساحيق ومطهرات ومنظفات أسطح للاستخدام اليومي.',
-    image: '1000250095.jpg',
+    image: './1000250095.jpg',
     emoji: '🧴',
+    merchantId: 'zad-home-3',
   },
   {
     id: 5,
@@ -78,8 +154,9 @@ const PRODUCTS: Product[] = [
     retailPrice: 42,
     unit: 'عبوة',
     description: 'منتجات ألبان وأجبان ومخبوزات طازجة للأسرة والسوبر ماركت.',
-    image: '1000250096.jpg',
+    image: './1000250096.jpg',
     emoji: '🧀',
+    merchantId: 'zad-fresh-2',
   },
   {
     id: 6,
@@ -89,8 +166,9 @@ const PRODUCTS: Product[] = [
     retailPrice: 38,
     unit: 'عبوة',
     description: 'مناديل ورقية وأدوات مطبخ عملية للتجار والمنزل.',
-    image: '1000250097.jpg',
+    image: './1000250097.jpg',
     emoji: '🧺',
+    merchantId: 'zad-home-3',
   },
 ];
 
@@ -98,45 +176,90 @@ const PRODUCTS: Product[] = [
 const WEEKLY_VOLUME = [48, 64, 58, 80, 74, 90, 96];
 const DAYS = ['السبت', 'الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة'];
 
+// خطوات آلية الطلب والتوريد
+const HOW_IT_WORKS = [
+  {
+    num: '01',
+    icon: '🛒',
+    title: 'اختر نوع الحساب والتاجر',
+    desc: 'حدد حساب التاجر (جملة) أو العميل القطاعي، واختر الفرع أو المخزن المناسب وأضف أصنافك إلى السلة.',
+  },
+  {
+    num: '02',
+    icon: '🛵',
+    title: 'تجهيز الطلب وتعيين الدليفري',
+    desc: 'يبدأ التاجر في تجهيز الأصناف فور إرسال الطلب مع إتاحة التوصيل عبر الدليفري أو الاستلام المباشر.',
+  },
+  {
+    num: '03',
+    icon: '💳',
+    title: 'الدفع الفوري ومتابعة التسليم',
+    desc: 'أتمم الدفع عبر إنستاباي أو المحفظة الإلكترونية وتابع مراحل الطلب حتى استلامه بنجاح.',
+  },
+];
+
 export function App() {
-  // حالات التصفية، نوع العميل، السلة، ونموذج الطلب
+  // حالات التصفية، نوع الحساب، التاجر، الدليفري، الدفع، السلة، ونموذج الطلب
   const [selectedCategory, setSelectedCategory] = useState<string>('الكل');
+  const [selectedMerchantId, setSelectedMerchantId] = useState<string>('ALL');
+  const [deliveryMode, setDeliveryMode] = useState<DeliveryMode>('delivery');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [customerType, setCustomerType] = useState<CustomerType>('retail');
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('instapay');
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
+  const [activeOrder, setActiveOrder] = useState<ActiveOrderTracking | null>(null);
 
   // بيانات نموذج إرسال الطلب
   const [customerName, setCustomerName] = useState<string>('');
   const [phone, setPhone] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
   const [submitting, setSubmitting] = useState<boolean>(false);
-  const [feedback, setFeedback] = useState<{ text: string; error: boolean } | null>(null);
+  const [toast, setToast] = useState<ToastState | null>(null);
 
-  // استخراج التصنيفات المتاحة تلقائياً
+  // إخفاء إشعار النجاح تلقائياً بعد 4.5 ثوانٍ
+  useEffect(() => {
+    if (!toast || toast.error) return;
+    const timer = window.setTimeout(() => setToast(null), 4500);
+    return () => window.clearTimeout(timer);
+  }, [toast]);
+
+  // استخراج التصنيفات المتاحة
   const categories = useMemo(() => {
     return ['الكل', ...Array.from(new Set(PRODUCTS.map((item) => item.category)))];
   }, []);
-
-  // تصفية المنتجات حسب التصنيف وكلمة البحث
-  const filteredProducts = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
-    return PRODUCTS.filter((product) => {
-      const matchCat = selectedCategory === 'الكل' || product.category === selectedCategory;
-      const matchSearch =
-        !q ||
-        product.name.toLowerCase().includes(q) ||
-        product.category.toLowerCase().includes(q) ||
-        product.description.toLowerCase().includes(q);
-      return matchCat && matchSearch;
-    });
-  }, [selectedCategory, searchQuery]);
 
   // حساب السعر حسب نوع الحساب (تاجر جملة أو عميل قطاعي)
   const getPrice = (product: Product) =>
     customerType === 'wholesale' ? product.wholesalePrice : product.retailPrice;
 
   const accountLabel = customerType === 'wholesale' ? 'تاجر (جملة)' : 'عميل قطاعي';
+
+  // تصفية المنتجات حسب التصنيف والتاجر وكلمة البحث
+  const filteredProducts = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return PRODUCTS.filter((product) => {
+      const matchCat = selectedCategory === 'الكل' || product.category === selectedCategory;
+      const matchMerchant =
+        selectedMerchantId === 'ALL' || product.merchantId === selectedMerchantId;
+      const matchSearch =
+        !q ||
+        product.name.toLowerCase().includes(q) ||
+        product.category.toLowerCase().includes(q) ||
+        product.description.toLowerCase().includes(q);
+      return matchCat && matchMerchant && matchSearch;
+    });
+  }, [selectedCategory, selectedMerchantId, searchQuery]);
+
+  // المتجر/الدليفري المحدد حالياً
+  const activeMerchant = useMemo(() => {
+    if (selectedMerchantId === 'ALL') {
+      const firstCartMerchant = cart[0]?.product.merchantId;
+      return MERCHANTS.find((m) => m.id === firstCartMerchant) || MERCHANTS[0];
+    }
+    return MERCHANTS.find((m) => m.id === selectedMerchantId) || MERCHANTS[0];
+  }, [selectedMerchantId, cart]);
 
   const totalCount = useMemo(
     () => cart.reduce((sum, item) => sum + item.quantity, 0),
@@ -147,6 +270,13 @@ export function App() {
     () => cart.reduce((sum, item) => sum + getPrice(item.product) * item.quantity, 0),
     [cart, customerType]
   );
+
+  const deliveryFee = useMemo(() => {
+    if (deliveryMode === 'pickup' || totalCount === 0) return 0;
+    return customerType === 'wholesale' ? 0 : activeMerchant.deliveryFee;
+  }, [deliveryMode, totalCount, customerType, activeMerchant]);
+
+  const grandTotal = totalAmount + deliveryFee;
 
   // إضافة منتج إلى السلة
   function addToCart(product: Product) {
@@ -159,7 +289,7 @@ export function App() {
       }
       return [...prev, { product, quantity: 1 }];
     });
-    setFeedback({ text: `تمت إضافة "${product.name}" إلى السلة`, error: false });
+    setToast({ text: `تمت إضافة "${product.name}" إلى سلة الطلبات`, error: false });
   }
 
   // تعديل كمية منتج في السلة
@@ -171,13 +301,21 @@ export function App() {
     );
   }
 
-  // إرسال الطلب إلى جدول orders في Supabase مع معالجة الأخطاء
+  // الانتقال بين مراحل تتبع الطلب
+  function advanceOrderStage() {
+    if (!activeOrder) return;
+    const flow: OrderStage[] = ['received', 'preparing', 'on_the_way', 'delivered'];
+    const nextStage = flow[(flow.indexOf(activeOrder.stage) + 1) % flow.length];
+    setActiveOrder({ ...activeOrder, stage: nextStage });
+  }
+
+  // إرسال الطلب إلى جدول orders في Supabase
   async function handleSubmitOrder(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setFeedback(null);
+    setToast(null);
 
     if (!customerName.trim() || !phone.trim()) {
-      setFeedback({ text: 'يرجى إدخال اسم العميل ورقم الهاتف أولاً.', error: true });
+      setToast({ text: 'يرجى إدخال اسم العميل ورقم الهاتف أولاً.', error: true });
       return;
     }
 
@@ -193,10 +331,23 @@ export function App() {
             .join(' | ')
         : 'طلب مباشر من السوبر ماركت / مستلزمات البيت';
 
+    const paymentSummary =
+      paymentMethod === 'instapay'
+        ? `إنستاباي (${INSTAPAY_NUMBER})`
+        : `محفظة إلكترونية (${WALLET_NUMBER})`;
+
+    const deliverySummary =
+      deliveryMode === 'delivery'
+        ? `دليفري (${activeMerchant.courierName}) — رسوم ${deliveryFee} ج.م`
+        : 'استلام مباشر من التاجر';
+
     const fullNotes = [
       `نوع الحساب: ${accountLabel}`,
+      `التاجر/الفرع: ${activeMerchant.name}`,
+      `التوصيل: ${deliverySummary}`,
+      `الدفع: ${paymentSummary}`,
       `الأصناف: ${itemsSummary}`,
-      totalAmount > 0 ? `الإجمالي التقديري: ${totalAmount} ج.م` : null,
+      `الإجمالي النهائي: ${grandTotal} ج.م`,
       notes.trim() ? `ملاحظات: ${notes.trim()}` : null,
     ]
       .filter(Boolean)
@@ -204,7 +355,7 @@ export function App() {
 
     setSubmitting(true);
     try {
-      const res = await fetch(`${SUPABASE_URL}/rest/v1/orders`, {
+      const response = await fetch(`${SUPABASE_URL}/rest/v1/orders`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -219,26 +370,38 @@ export function App() {
         }),
       });
 
-      if (!res.ok) {
-        const errText = await res.text();
-        throw new Error(errText || 'تعذر حفظ الطلب في قاعدة البيانات');
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(errorText || 'تعذر حفظ الطلب في قاعدة البيانات');
       }
+
+      const generatedId = `ZL-${Math.floor(100000 + Math.random() * 900000)}`;
+      setActiveOrder({
+        id: generatedId,
+        merchantName: activeMerchant.name,
+        courierName:
+          deliveryMode === 'delivery' ? activeMerchant.courierName : 'استلام مباشر من التاجر',
+        deliveryMode,
+        paymentMethod,
+        totalWithDelivery: grandTotal,
+        stage: 'preparing',
+      });
 
       setCustomerName('');
       setPhone('');
       setNotes('');
       setCart([]);
       setIsModalOpen(false);
-      setFeedback({
-        text: 'تم إرسال طلبك بنجاح! سيتواصل معك فريق زاد لينك قريباً.',
+      setToast({
+        text: `تم إرسال طلبك رقم #${generatedId} بنجاح وجاري تجهيزه عبر ${activeMerchant.name}.`,
         error: false,
       });
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'حدث خطأ غير متوقع';
-      setFeedback({
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'حدث خطأ غير متوقع';
+      setToast({
         text:
           msg === 'Failed to fetch'
-            ? 'تعذر الاتصال بالخادم حالياً. يمكنك التواصل على 01224966506.'
+            ? 'تعذر الاتصال بالخادم حالياً. يرجى المحاولة مرة أخرى بعد قليل.'
             : `خطأ: ${msg}`,
         error: true,
       });
@@ -248,150 +411,371 @@ export function App() {
   }
 
   return (
-    <div dir="rtl" className="min-h-screen bg-slate-950 text-white selection:bg-emerald-500/30">
+    <div id="top" dir="rtl" className="app-shell">
       {/* شريط التنقل العلوي */}
-      <header className="sticky top-0 z-40 border-b border-slate-800/80 bg-slate-950/90 backdrop-blur-md">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3.5">
-          <a href="#top" className="flex items-center gap-2.5">
-            <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 text-lg font-extrabold text-slate-950">
-              ز
+      <header className="topbar">
+        <div className="container nav-wrap">
+          <a href="#top" className="brand">
+            <span className="brand-mark" aria-hidden="true">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
+                <path d="M12 2L2 7l10 5 10-5-10-5z" />
+                <path d="M2 17l10 5 10-5" />
+                <path d="M2 12l10 5 10-5" />
+              </svg>
             </span>
-            <div>
-              <b className="block text-base font-extrabold text-white">زاد لينك</b>
-              <small className="block text-[10px] tracking-widest text-emerald-400">ZADLINK</small>
-            </div>
+            <span>
+              <b>زاد لينك</b>
+              <small>ZADLINK</small>
+            </span>
           </a>
 
-          <nav className="hidden items-center gap-6 text-xs text-slate-300 md:flex">
-            <a href="#products" className="hover:text-emerald-400 transition">المنتجات والأسعار</a>
-            <a href="#trade" className="hover:text-emerald-400 transition">بيانات التداول</a>
-            <a href="#contact" className="hover:text-emerald-400 transition">التواصل والعنوان</a>
+          <nav className={`nav-links ${mobileMenuOpen ? 'open' : ''}`}>
+            <a href="#products" onClick={() => setMobileMenuOpen(false)}>المنتجات والأسعار</a>
+            <a href="#dispatch" onClick={() => setMobileMenuOpen(false)}>التاجر والدليفري</a>
+            <a href="#trade" onClick={() => setMobileMenuOpen(false)}>مؤشر التداول</a>
+            <a href="#how-it-works" onClick={() => setMobileMenuOpen(false)}>آلية الطلب</a>
+            <a href="#contact" onClick={() => setMobileMenuOpen(false)}>الدفع والتواصل</a>
           </nav>
 
-          <button
-            type="button"
-            onClick={() => setIsModalOpen(true)}
-            className="flex items-center gap-2 rounded-xl border border-emerald-500/40 bg-emerald-500/15 px-3.5 py-2 text-xs font-bold text-emerald-200 hover:bg-emerald-500/25 transition"
-          >
-            <span>سلة الطلبات</span>
-            <span className="flex h-5 min-w-5 items-center justify-center rounded-md bg-emerald-500 px-1.5 text-[11px] font-extrabold text-slate-950">
-              {totalCount}
-            </span>
-          </button>
-        </div>
-      </header>
-
-      {/* القسم الرئيسي الترحيبي */}
-      <section id="top" className="mx-auto max-w-6xl px-4 pt-12 pb-10">
-        <div className="rounded-3xl border border-slate-800 bg-gradient-to-br from-slate-900 via-slate-900 to-emerald-950/30 p-6 md:p-10 shadow-2xl">
-          <span className="inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3.5 py-1 text-xs font-semibold text-emerald-300">
-            <span className="h-2 w-2 rounded-full bg-emerald-400" />
-            طعام • مستلزمات بيت • سوبر ماركت • جملة وقطاعي
-          </span>
-
-          <h1 className="mt-4 text-3xl font-extrabold leading-tight text-white md:text-5xl">
-            منصة <span className="text-emerald-400">زاد لينك</span> للطعام ومستلزمات البيت والسوبر ماركت
-          </h1>
-
-          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-slate-300">
-            نوفر احتياجات الأسرة والمتاجر من سلع غذائية وبقالة وزيوت ومنظفات وأدوات منزلية بأسعار واضحة للتاجر والعميل القطاعي مع تسجيل فوري للطلبات.
-          </p>
-
-          <div className="mt-6 flex flex-wrap items-center gap-3">
+          <div className="nav-actions">
             <button
               type="button"
               onClick={() => setIsModalOpen(true)}
-              className="rounded-xl bg-emerald-500 px-5 py-3 text-xs font-extrabold text-slate-950 hover:bg-emerald-400 transition"
+              className="cart-button"
             >
-              إرسال طلب جديد الآن
+              <span>سلة الطلبات</span>
+              <em>{totalCount}</em>
             </button>
-            <a
-              href="#products"
-              className="rounded-xl border border-slate-700 bg-slate-900 px-5 py-3 text-xs font-semibold text-slate-200 hover:border-emerald-500/50 transition"
+
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen((prev) => !prev)}
+              className="mobile-menu"
+              aria-label="القائمة"
             >
-              تصفح المنتجات والأسعار
-            </a>
+              {mobileMenuOpen ? '✕' : '☰'}
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* القسم الرئيسي (البطل + الإحصائيات) */}
+      <section className="hero">
+        <div className="hero-glow glow-one" />
+        <div className="hero-glow glow-two" />
+
+        <div className="container">
+          <div className="hero-grid">
+            <div className="hero-copy">
+              <span className="eyebrow">
+                <i className="pulse-dot" />
+                طعام • مستلزمات بيت • سوبر ماركت • جملة وقطاعي
+              </span>
+
+              <h1>
+                منصة <span>زاد لينك</span> للطعام ومستلزمات البيت والسوبر ماركت
+              </h1>
+
+              <p>
+                كل احتياجات الطعام ومستلزمات البيت للتاجر والقطاعي في مكان واحد؛ بقالة، زيوت، طازج، ومنظفات بتسعير واضح وربط مباشر مع التاجر والدليفري.
+              </p>
+
+              <div className="hero-buttons">
+                <button
+                  type="button"
+                  onClick={() => setIsModalOpen(true)}
+                  className="primary-button"
+                >
+                  <span>سجّل طلبك الآن</span>
+                  <span>←</span>
+                </button>
+
+                <a href="#products" className="text-button">
+                  <span>تصفح المنتجات والأسعار</span>
+                  <span>↓</span>
+                </a>
+              </div>
+
+              <div className="hero-proof">
+                <div className="proof-avatars" aria-hidden="true">
+                  <span>ز</span>
+                  <span>ل</span>
+                  <span>+</span>
+                </div>
+                <div>
+                  <strong>خدمة التاجر والعميل القطاعي</strong>
+                  <small>توريد مستمر • دليفري سريع • دفع عبر إنستاباي والمحفظة</small>
+                </div>
+              </div>
+            </div>
+
+            <div className="hero-visual" aria-hidden="true">
+              <div className="visual-ring ring-a" />
+              <div className="visual-ring ring-b" />
+
+              <div className="visual-center">
+                <div className="crate crate-back">🛒</div>
+                <div className="crate crate-front">🧺</div>
+                <span className="leaf leaf-one">🌿</span>
+                <span className="leaf leaf-two">✨</span>
+              </div>
+
+              <div className="floating-card card-delivery">
+                <span className="mini-icon">🛵</span>
+                <div>
+                  <b>ربط التاجر والدليفري</b>
+                  <small>تجهيز وتوصيل مباشر للباب</small>
+                </div>
+              </div>
+
+              <div className="floating-card card-quality">
+                <span className="quality-icon">✓</span>
+                <div>
+                  <b>جملة وقطاعي بتسعير واضح</b>
+                  <small>غذاء، بقالة، ومستلزمات منزلية</small>
+                </div>
+              </div>
+
+              <div className="visual-label">
+                <span />
+                ZADLINK SUPPLY & DELIVERY NETWORK
+              </div>
+            </div>
+          </div>
+
+          <div className="hero-stats">
+            <div>
+              <strong>+120</strong>
+              <span>صنف غذائي ومنزلي</span>
+            </div>
+            <div>
+              <strong>جملة / قطاعي</strong>
+              <span>تسعير مرن للتجار والأسرة</span>
+            </div>
+            <div>
+              <strong>دليفري مباشر</strong>
+              <span>ربط فوري مع الفرع والمندوب</span>
+            </div>
+            <div>
+              <strong>24/7</strong>
+              <span>استقبال الطلبات يومياً</span>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* قسم المنتجات والتسعير */}
-      <section id="products" className="mx-auto max-w-6xl px-4 py-10">
-        <div className="flex flex-col justify-between gap-4 md:flex-row md:items-end">
-          <div>
-            <span className="text-xs font-semibold text-emerald-400">قائمة الأصناف المتاحة</span>
-            <h2 className="mt-1 text-2xl font-extrabold text-white md:text-3xl">
-              المنتجات <span className="text-emerald-400">والأسعار</span>
-            </h2>
-          </div>
+      {/* لوحة ربط التاجر والموقع والدليفري وتتبع حالة الطلب */}
+      <section id="dispatch" className="section">
+        <div className="container">
+          <div className="trade-panel">
+            <div className="trade-intro">
+              <span className="section-kicker">شبكة التوريد والتوصيل</span>
+              <h2>
+                ربط <span>التاجر والموقع والدليفري</span>
+              </h2>
+              <p>
+                اختر الفرع أو المخزن المورد واختر بين توصيل الدليفري أو الاستلام المباشر من التاجر، وتابع مراحل الطلب خطوة بخطوة.
+              </p>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="inline-flex rounded-xl border border-slate-800 bg-slate-900 p-1">
+              <div className="customer-type-switch" style={{ marginTop: 18 }}>
+                <button
+                  type="button"
+                  onClick={() => setDeliveryMode('delivery')}
+                  className={`type-pill ${deliveryMode === 'delivery' ? 'active' : ''}`}
+                >
+                  توصيل دليفري
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDeliveryMode('pickup')}
+                  className={`type-pill ${deliveryMode === 'pickup' ? 'active' : ''}`}
+                >
+                  استلام من التاجر
+                </button>
+              </div>
+            </div>
+
+            <div className="metrics-grid">
+              {MERCHANTS.map((merchant) => {
+                const selected = merchant.id === activeMerchant.id;
+                return (
+                  <button
+                    key={merchant.id}
+                    type="button"
+                    onClick={() => setSelectedMerchantId(merchant.id)}
+                    className={`metric-card ${selected ? 'metric-highlight' : ''}`}
+                    style={{ textAlign: 'right' }}
+                  >
+                    <div className="metric-top">
+                      <span>{merchant.zone}</span>
+                      <span>★ {merchant.rating}</span>
+                    </div>
+                    <strong style={{ fontSize: 15, margin: '12px 0 6px' }}>{merchant.name}</strong>
+                    <small style={{ display: 'block' }}>التجهيز: {merchant.prepTime}</small>
+                    <small style={{ display: 'block', marginTop: 4, color: '#6ee7b7' }}>
+                      {merchant.courierName}
+                    </small>
+                  </button>
+                );
+              })}
+
+              <div className="metric-card">
+                <div className="metric-top">
+                  <span>رسوم التوصيل الحالية</span>
+                  <span>🛵</span>
+                </div>
+                <strong>
+                  {deliveryMode === 'pickup'
+                    ? '0 ج.م'
+                    : customerType === 'wholesale'
+                      ? 'مجاني'
+                      : `${activeMerchant.deliveryFee} ج.م`}
+                </strong>
+                <small>
+                  {deliveryMode === 'delivery'
+                    ? customerType === 'wholesale'
+                      ? 'إعفاء رسوم التوصيل لحساب الجملة'
+                      : 'توصيل مباشر عبر مندوب الفرع'
+                    : 'استلام مباشر من فرع التاجر'}
+                </small>
+              </div>
+            </div>
+
+            <div className="trade-chart" style={{ gridColumn: '1 / -1' }}>
+              <div className="chart-heading">
+                <span>
+                  حالة الطلب الحالية:{' '}
+                  <strong style={{ color: '#6ee7b7' }}>
+                    {activeOrder ? `#${activeOrder.id}` : 'جاهز لاستقبال طلبك'}
+                  </strong>
+                </span>
+                {activeOrder && (
+                  <button
+                    type="button"
+                    onClick={advanceOrderStage}
+                    className="category-chip active"
+                    style={{ padding: '6px 12px' }}
+                  >
+                    تحديث مرحلة الطلب
+                  </button>
+                )}
+              </div>
+
+              <div className="steps-grid" style={{ marginTop: 14, gap: 10 }}>
+                {ORDER_STAGES.map((st, index) => {
+                  const activeStageKey = activeOrder ? activeOrder.stage : 'received';
+                  const currentIndex = ORDER_STAGES.findIndex((s) => s.key === activeStageKey);
+                  const reached = index <= currentIndex;
+                  return (
+                    <div
+                      key={st.key}
+                      className="metric-card"
+                      style={{
+                        padding: 14,
+                        borderColor: reached
+                          ? 'rgba(52, 211, 153, 0.45)'
+                          : 'rgba(148, 163, 184, 0.12)',
+                        opacity: reached ? 1 : 0.6,
+                      }}
+                    >
+                      <div className="metric-top">
+                        <span>0{index + 1}</span>
+                        <span>{reached ? '✓' : '•'}</span>
+                      </div>
+                      <strong style={{ fontSize: 13, margin: '8px 0 4px' }}>{st.label}</strong>
+                      <small>{st.desc}</small>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* قسم المنتجات والأسعار */}
+      <section id="products" className="section">
+        <div className="container">
+          <div className="section-heading">
+            <div>
+              <span className="section-kicker">قائمة الأصناف والأسعار</span>
+              <h2>
+                المنتجات <span>والأسعار</span>
+              </h2>
+              <p>اختر نوع الحساب (تاجر جملة أو عميل قطاعي) وابحث بالاسم أو التصنيف.</p>
+            </div>
+
+            <div className="customer-type-switch">
               <button
                 type="button"
                 onClick={() => setCustomerType('wholesale')}
-                className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${
-                  customerType === 'wholesale'
-                    ? 'bg-emerald-600 text-white'
-                    : 'text-slate-400 hover:text-white'
-                }`}
+                className={`type-pill ${customerType === 'wholesale' ? 'active' : ''}`}
               >
                 تاجر (جملة)
               </button>
               <button
                 type="button"
                 onClick={() => setCustomerType('retail')}
-                className={`rounded-lg px-3 py-1.5 text-xs font-bold transition ${
-                  customerType === 'retail'
-                    ? 'bg-emerald-600 text-white'
-                    : 'text-slate-400 hover:text-white'
-                }`}
+                className={`type-pill ${customerType === 'retail' ? 'active' : ''}`}
               >
                 عميل قطاعي
               </button>
             </div>
 
-            <input
-              type="search"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="ابحث عن منتج أو تصنيف..."
-              className="w-full rounded-xl border border-slate-800 bg-slate-900 px-3.5 py-2 text-xs text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none sm:w-60"
-            />
+            <div className="search-box">
+              <span>🔍</span>
+              <input
+                type="search"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="ابحث عن منتج أو تصنيف..."
+              />
+              <kbd>{filteredProducts.length}</kbd>
+            </div>
           </div>
-        </div>
 
-        {/* أشرطة التصنيفات */}
-        <div className="mt-5 flex gap-2 overflow-x-auto pb-2">
-          {categories.map((cat) => (
+          <div className="category-row">
             <button
-              key={cat}
               type="button"
-              onClick={() => setSelectedCategory(cat)}
-              className={`whitespace-nowrap rounded-xl border px-3.5 py-2 text-xs font-semibold transition ${
-                selectedCategory === cat
-                  ? 'border-emerald-500 bg-emerald-950 text-emerald-300'
-                  : 'border-slate-800 bg-slate-900 text-slate-400 hover:text-white'
-              }`}
+              onClick={() => setSelectedMerchantId('ALL')}
+              className={`category-chip ${selectedMerchantId === 'ALL' ? 'active' : ''}`}
             >
-              {cat}
+              كل الفروع
             </button>
-          ))}
-        </div>
+            {MERCHANTS.map((m) => (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => setSelectedMerchantId(m.id)}
+                className={`category-chip ${selectedMerchantId === m.id ? 'active' : ''}`}
+              >
+                {m.name}
+              </button>
+            ))}
+          </div>
 
-        {/* شبكة المنتجات */}
-        {filteredProducts.length > 0 ? (
-          <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {filteredProducts.map((product) => {
-              const price = getPrice(product);
-              return (
-                <article
-                  key={product.id}
-                  className="flex flex-col justify-between rounded-2xl border border-slate-800 bg-slate-900 overflow-hidden shadow-lg"
-                >
-                  <div>
-                    <div className="relative flex h-44 items-center justify-center bg-slate-950">
-                      <span className="text-6xl" aria-hidden="true">
+          <div className="category-row">
+            {categories.map((cat) => (
+              <button
+                key={cat}
+                type="button"
+                onClick={() => setSelectedCategory(cat)}
+                className={`category-chip ${selectedCategory === cat ? 'active' : ''}`}
+              >
+                {cat}
+              </button>
+            ))}
+          </div>
+
+          {filteredProducts.length > 0 ? (
+            <div className="product-grid">
+              {filteredProducts.map((product) => {
+                const price = getPrice(product);
+                return (
+                  <article key={product.id} className="product-card">
+                    <div className="product-image">
+                      <div className="image-orb" />
+                      <span className="product-emoji" aria-hidden="true">
                         {product.emoji}
                       </span>
                       <img
@@ -401,338 +785,464 @@ export function App() {
                         onError={(e) => {
                           e.currentTarget.style.display = 'none';
                         }}
-                        className="absolute inset-0 h-full w-full object-cover"
                       />
-                      <span className="absolute top-3 right-3 rounded-lg border border-emerald-500/30 bg-slate-950/85 px-2.5 py-1 text-[10px] font-semibold text-emerald-300">
-                        متوفر
+                      <span className="availability">
+                        <i />
+                        متوفر للتوريد
                       </span>
                     </div>
 
-                    <div className="p-4">
-                      <span className="text-[11px] font-semibold text-emerald-400">
-                        {product.category}
-                      </span>
-                      <h3 className="mt-1 text-base font-bold text-white">{product.name}</h3>
-                      <p className="mt-1.5 text-xs leading-relaxed text-slate-400">
-                        {product.description}
-                      </p>
-                    </div>
-                  </div>
+                    <div className="product-info">
+                      <span className="product-category">{product.category}</span>
+                      <h3>{product.name}</h3>
+                      <p>{product.description}</p>
 
-                  <div className="flex items-center justify-between border-t border-slate-800 px-4 py-3">
-                    <div>
-                      <strong className="text-lg font-extrabold text-white">
-                        {price} <small className="text-xs font-normal text-slate-400">ج.م / {product.unit}</small>
-                      </strong>
-                      <span className="block text-[10px] text-slate-400">
-                        {customerType === 'wholesale'
-                          ? `سعر التاجر (قطاعي: ${product.retailPrice} ج.م)`
-                          : `سعر القطاعي (تاجر: ${product.wholesalePrice} ج.م)`}
-                      </span>
-                    </div>
+                      <div className="product-bottom">
+                        <div>
+                          <strong>
+                            {price} <small>ج.م / {product.unit}</small>
+                          </strong>
+                          <span>
+                            {customerType === 'wholesale'
+                              ? `جملة (قطاعي: ${product.retailPrice} ج.م)`
+                              : `قطاعي (جملة: ${product.wholesalePrice} ج.م)`}
+                          </span>
+                        </div>
 
-                    <button
-                      type="button"
-                      onClick={() => addToCart(product)}
-                      className="rounded-xl border border-emerald-500/40 bg-emerald-500/15 px-3 py-2 text-xs font-bold text-emerald-300 hover:bg-emerald-500 hover:text-slate-950 transition"
-                    >
-                      + أضف للسلة
-                    </button>
-                  </div>
-                </article>
-              );
-            })}
+                        <button
+                          type="button"
+                          onClick={() => addToCart(product)}
+                          className="add-button"
+                        >
+                          <span>+ أضف للسلة</span>
+                        </button>
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="empty-state">
+              <b>لا توجد منتجات مطابقة</b>
+              <span>جرّب تغيير التصنيف أو كلمة البحث الحالية.</span>
+            </div>
+          )}
+
+          <div className="market-note">
+            <span>ℹ️</span>
+            <p>
+              الأسعار المعروضة استرشادية وتُحدّث وفق حركة السوق والتوريد؛ يمكنك تأكيد الكميات والأسعار النهائية عند إرسال الطلب.
+            </p>
           </div>
-        ) : (
-          <div className="mt-6 rounded-2xl border border-dashed border-slate-800 bg-slate-900/50 p-8 text-center text-xs text-slate-400">
-            لا توجد منتجات مطابقة لبحثك حالياً.
-          </div>
-        )}
+        </div>
       </section>
 
-      {/* قسم التداول والمؤشرات والبيانات */}
-      <section id="trade" className="mx-auto max-w-6xl px-4 py-10">
-        <div className="rounded-3xl border border-slate-800 bg-slate-900 p-6 md:p-8">
-          <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
-            <div>
-              <span className="text-xs font-semibold text-emerald-400">مؤشرات الحركة اليومية</span>
-              <h2 className="mt-1 text-2xl font-extrabold text-white">
-                بيانات <span className="text-emerald-400">التداول والتوريد</span>
+      {/* قسم مؤشر التداول والبيانات */}
+      <section id="trade" className="section trade-section">
+        <div className="container">
+          <div className="trade-panel">
+            <div className="trade-intro">
+              <span className="section-kicker">مؤشرات التداول اليومي</span>
+              <h2>
+                بيانات <span>التداول والطلب</span>
               </h2>
+              <p>
+                متابعة مستمرة لحركة الطلبات وتوريد السلع الغذائية والمنزلية لتجار الجملة وعملاء القطاعي.
+              </p>
+              <button
+                type="button"
+                onClick={() => setIsModalOpen(true)}
+                className="outline-button"
+              >
+                <span>بدء طلب توريد جديد</span>
+                <span>←</span>
+              </button>
             </div>
-            <span className="rounded-xl border border-emerald-500/30 bg-emerald-950/60 px-3 py-1.5 text-xs font-semibold text-emerald-300">
-              تحديث مستمر • جملة وقطاعي
-            </span>
-          </div>
 
-          <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
-            <div className="rounded-2xl border border-slate-800 bg-slate-950 p-4">
-              <span className="text-xs text-slate-400">الطلبات اليومية</span>
-              <strong className="mt-2 block text-xl font-extrabold text-emerald-400">+240</strong>
-            </div>
-            <div className="rounded-2xl border border-slate-800 bg-slate-950 p-4">
-              <span className="text-xs text-slate-400">الأصناف الأساسية</span>
-              <strong className="mt-2 block text-xl font-extrabold text-white">+120</strong>
-            </div>
-            <div className="rounded-2xl border border-slate-800 bg-slate-950 p-4">
-              <span className="text-xs text-slate-400">فئات العملاء</span>
-              <strong className="mt-2 block text-xl font-extrabold text-white">تاجر + قطاعي</strong>
-            </div>
-            <div className="rounded-2xl border border-slate-800 bg-slate-950 p-4">
-              <span className="text-xs text-slate-400">استقبال الطلبات</span>
-              <strong className="mt-2 block text-xl font-extrabold text-emerald-400">24/7</strong>
-            </div>
-          </div>
+            <div className="metrics-grid">
+              <div className="metric-card">
+                <div className="metric-top">
+                  <span>حجم الطلبات اليومي</span>
+                  <span>📈</span>
+                </div>
+                <strong>+240</strong>
+                <small>طلب متنوع يومياً</small>
+              </div>
 
-          <div className="mt-6 rounded-2xl border border-slate-800 bg-slate-950 p-4">
-            <div className="mb-3 flex items-center justify-between text-xs text-slate-400">
-              <span>مؤشر النشاط الأسبوعي</span>
-              <span>آخر 7 أيام</span>
+              <div className="metric-card">
+                <div className="metric-top">
+                  <span>الأصناف النشطة</span>
+                  <span>📦</span>
+                </div>
+                <strong>+120</strong>
+                <small>بقالة، زيوت، طازج، ومنظفات</small>
+              </div>
+
+              <div className="metric-card">
+                <div className="metric-top">
+                  <span>فئات الحسابات</span>
+                  <span>👥</span>
+                </div>
+                <strong>تاجر + قطاعي</strong>
+                <small>تسعير مخصص لكل فئة</small>
+              </div>
+
+              <div className="metric-card metric-highlight">
+                <div className="metric-top">
+                  <span>جاهزية التوريد</span>
+                  <span>⚡</span>
+                </div>
+                <strong>متاح الآن</strong>
+                <small>استقبال فوري وتسجيل في قاعدة البيانات</small>
+              </div>
             </div>
-            <div className="flex h-28 items-end gap-2 border-b border-slate-800 pb-1">
-              {WEEKLY_VOLUME.map((val, i) => (
-                <div
-                  key={DAYS[i]}
-                  style={{ height: `${val}%` }}
-                  className="flex-1 rounded-t-md bg-gradient-to-t from-emerald-700 to-emerald-400"
-                  title={`${DAYS[i]}: ${val}%`}
-                />
-              ))}
-            </div>
-            <div className="mt-2 flex justify-between text-[11px] text-slate-500">
-              {DAYS.map((day) => (
-                <span key={day}>{day}</span>
-              ))}
+
+            <div className="trade-chart">
+              <div className="chart-heading">
+                <span>مؤشر حجم التداول الأسبوعي</span>
+                <small>آخر 7 أيام</small>
+              </div>
+              <div className="chart-bars">
+                {WEEKLY_VOLUME.map((val, idx) => (
+                  <span
+                    key={DAYS[idx]}
+                    style={{ height: `${val}%` }}
+                    title={`${DAYS[idx]}: ${val}%`}
+                  />
+                ))}
+              </div>
+              <div className="chart-foot">
+                {DAYS.map((day) => (
+                  <span key={day}>{day}</span>
+                ))}
+              </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* قسم التواصل والعنوان */}
-      <section id="contact" className="mx-auto max-w-6xl px-4 pt-6 pb-16">
-        <div className="grid grid-cols-1 gap-6 rounded-3xl border border-slate-800 bg-slate-900 p-6 md:grid-cols-2 md:p-8">
-          <div>
-            <span className="text-xs font-semibold text-emerald-400">بيانات التواصل والموقع</span>
-            <h2 className="mt-1 text-2xl font-extrabold text-white">
-              تواصل مع <span className="text-emerald-400">زاد لينك</span>
+      {/* قسم آلية الطلب والتوريد */}
+      <section id="how-it-works" className="section">
+        <div className="container">
+          <div className="center-heading">
+            <span className="section-kicker">خطوات بسيطة وسريعة</span>
+            <h2>
+              آلية <span>الطلب والتوريد</span>
             </h2>
-            <p className="mt-2 text-xs leading-relaxed text-slate-400">
-              نسعد باستقبال طلبات التوريد للجملة والعملاء القطاعي وطلبات المنزل والسوبر ماركت يومياً.
-            </p>
-
-            <div className="mt-5 space-y-3 text-xs">
-              <div className="rounded-2xl border border-slate-800 bg-slate-950 p-3.5">
-                <span className="block text-[11px] text-slate-500">رقم الهاتف وخدمة العملاء</span>
-                <a href="tel:01224966506" dir="ltr" className="mt-0.5 inline-block font-bold text-emerald-300">
-                  0122 496 6506
-                </a>
-              </div>
-
-              <div className="rounded-2xl border border-slate-800 bg-slate-950 p-3.5">
-                <span className="block text-[11px] text-slate-500">العنوان</span>
-                <b className="mt-0.5 block text-slate-200">
-                  بورفؤاد — مساكن الطاقة الشمسية، محافظة بورسعيد، مصر
-                </b>
-              </div>
-
-              <div className="rounded-2xl border border-slate-800 bg-slate-950 p-3.5">
-                <span className="block text-[11px] text-slate-500">مواعيد العمل</span>
-                <b className="mt-0.5 block text-slate-200">يومياً على مدار 24 ساعة</b>
-              </div>
-            </div>
           </div>
 
-          <div className="flex flex-col justify-between rounded-2xl border border-emerald-500/25 bg-gradient-to-br from-emerald-950/70 to-slate-950 p-6">
-            <div>
-              <span className="inline-flex items-center gap-2 rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-300">
-                <span className="h-2 w-2 rounded-full bg-emerald-400" />
-                استقبال الطلبات متاح الآن
-              </span>
-              <h3 className="mt-4 text-xl font-extrabold text-white">
-                اطلب احتياجاتك مباشرة وسجّل بياناتك
-              </h3>
-              <p className="mt-2 text-xs leading-relaxed text-emerald-100/80">
-                اختر نوع حسابك (تاجر أو عميل قطاعي)، راجع الأصناف في السلة أو اكتب قائمة طلباتك في الملاحظات، وأرسل طلبك فوراً.
+          <div className="steps-grid">
+            {HOW_IT_WORKS.map((step) => (
+              <div key={step.num} className="step-card">
+                <span className="step-number">{step.num}</span>
+                <div className="step-icon" aria-hidden="true">
+                  {step.icon}
+                </div>
+                <h3>{step.title}</h3>
+                <p>{step.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* قسم طرق الدفع والتواصل */}
+      <section id="contact" className="section contact-section">
+        <div className="container">
+          <div className="contact-panel">
+            <div className="contact-copy">
+              <span className="section-kicker">طرق الدفع المعتمدة</span>
+              <h2>
+                الدفع والتواصل مع <span>زاد لينك</span>
+              </h2>
+              <p>
+                يمكنك إتمام الدفع بسهولة عبر إنستاباي أو المحفظة الإلكترونية، وتحديد وسيلة الدفع داخل نموذج الطلب.
               </p>
+
+              <div className="contact-details">
+                <div>
+                  <span>🏦</span>
+                  <div>
+                    <small>إنستاباي (InstaPay)</small>
+                    <b dir="ltr" style={{ textAlign: 'right' }}>{INSTAPAY_NUMBER}</b>
+                  </div>
+                </div>
+
+                <div>
+                  <span>👛</span>
+                  <div>
+                    <small>المحفظة الإلكترونية</small>
+                    <b dir="ltr" style={{ textAlign: 'right' }}>{WALLET_NUMBER}</b>
+                  </div>
+                </div>
+
+                <div>
+                  <span>🕒</span>
+                  <div>
+                    <small>مواعيد الخدمة</small>
+                    <b>يومياً على مدار 24 ساعة</b>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <button
-              type="button"
-              onClick={() => setIsModalOpen(true)}
-              className="mt-6 w-full rounded-xl bg-emerald-400 px-4 py-3 text-xs font-extrabold text-slate-950 hover:bg-emerald-300 transition"
-            >
-              فتح نموذج إرسال الطلب
-            </button>
+            <div className="contact-side">
+              <div className="contact-side-top">
+                <span className="contact-symbol">ز</span>
+                <span className="online-label">
+                  <i />
+                  استقبال الطلبات نشط
+                </span>
+              </div>
+
+              <h3>اطلب احتياجاتك مباشرة وسجّل بياناتك</h3>
+              <p>
+                اختر نوع حسابك ووسيلة الدفع (إنستاباي أو المحفظة)، راجع السلة أو اكتب ملاحظاتك، وأرسل طلبك فوراً.
+              </p>
+
+              <button
+                type="button"
+                onClick={() => setIsModalOpen(true)}
+                className="contact-cta"
+              >
+                <span>فتح نموذج الطلب</span>
+                <span>←</span>
+              </button>
+
+              <span className="contact-pattern" aria-hidden="true">
+                ZADLINK
+              </span>
+            </div>
           </div>
         </div>
       </section>
 
       {/* تذييل الصفحة */}
-      <footer className="border-t border-slate-800/80 bg-slate-950 py-6 text-center text-xs text-slate-500">
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-2 px-4 sm:flex-row">
+      <footer className="footer">
+        <div className="container footer-inner">
+          <a href="#top" className="brand footer-brand">
+            <span className="brand-mark">ز</span>
+            <span>
+              <b>زاد لينك</b>
+              <small>ZADLINK</small>
+            </span>
+          </a>
+
           <span>© {new Date().getFullYear()} زاد لينك (ZadLink) — جميع الحقوق محفوظة.</span>
-          <a href="#top" className="text-emerald-400 hover:underline">العودة للأعلى ↑</a>
+
+          <a href="#top">العودة للأعلى ↑</a>
         </div>
       </footer>
 
-      {/* نافذة إرسال الطلب */}
+      {/* نافذة إرسال الطلب والسلة */}
       {isModalOpen && (
         <div
+          className="modal-backdrop"
           onClick={(e) => {
             if (e.target === e.currentTarget) setIsModalOpen(false);
           }}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm"
         >
-          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-slate-700 bg-slate-900 p-5 shadow-2xl">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-              <h2 className="text-lg font-extrabold text-white">إرسال طلب جديد</h2>
+          <div className="order-modal">
+            <div className="modal-head">
+              <div>
+                <span className="section-kicker">تسجيل طلب جديد</span>
+                <h2>إرسال طلبك إلى زاد لينك</h2>
+              </div>
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="rounded-lg border border-slate-700 bg-slate-800 px-2.5 py-1 text-xs text-slate-300 hover:text-white"
+                className="modal-close"
+                aria-label="إغلاق"
               >
                 ✕
               </button>
             </div>
 
-            <div className="mt-4 flex rounded-xl border border-slate-800 bg-slate-950 p-1">
+            <div className="customer-type-switch modal-type-switch">
               <button
                 type="button"
                 onClick={() => setCustomerType('wholesale')}
-                className={`flex-1 rounded-lg py-1.5 text-xs font-bold transition ${
-                  customerType === 'wholesale' ? 'bg-emerald-600 text-white' : 'text-slate-400'
-                }`}
+                className={`type-pill ${customerType === 'wholesale' ? 'active' : ''}`}
               >
                 تاجر (جملة)
               </button>
               <button
                 type="button"
                 onClick={() => setCustomerType('retail')}
-                className={`flex-1 rounded-lg py-1.5 text-xs font-bold transition ${
-                  customerType === 'retail' ? 'bg-emerald-600 text-white' : 'text-slate-400'
-                }`}
+                className={`type-pill ${customerType === 'retail' ? 'active' : ''}`}
               >
                 عميل قطاعي
               </button>
             </div>
 
             {cart.length > 0 ? (
-              <div className="mt-4 space-y-2 rounded-xl border border-slate-800 bg-slate-950 p-3">
+              <div className="cart-lines">
                 {cart.map((item) => {
                   const unitPrice = getPrice(item.product);
                   return (
-                    <div
-                      key={item.product.id}
-                      className="flex items-center justify-between gap-2 border-b border-slate-800/70 pb-2 last:border-b-0 last:pb-0 text-xs"
-                    >
-                      <div>
-                        <b className="block text-white">{item.product.name}</b>
-                        <span className="text-[11px] text-slate-400">
+                    <div key={item.product.id} className="cart-line">
+                      <div className="cart-line-info">
+                        <b>{item.product.name}</b>
+                        <small>
                           {unitPrice} ج.م / {item.product.unit}
-                        </span>
+                        </small>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="cart-quantity">
                         <button
                           type="button"
                           onClick={() => changeQty(item.product.id, -1)}
-                          className="h-6 w-6 rounded bg-slate-800 font-bold text-white"
+                          aria-label="إنقاص الكمية"
                         >
                           -
                         </button>
-                        <span className="min-w-4 text-center font-bold">{item.quantity}</span>
+                        <strong>{item.quantity}</strong>
                         <button
                           type="button"
                           onClick={() => changeQty(item.product.id, 1)}
-                          className="h-6 w-6 rounded bg-emerald-600 font-bold text-white"
+                          aria-label="زيادة الكمية"
                         >
                           +
                         </button>
-                        <strong className="min-w-14 text-left text-emerald-300">
-                          {unitPrice * item.quantity} ج.م
-                        </strong>
                       </div>
+                      <strong className="cart-line-total">{unitPrice * item.quantity} ج.م</strong>
                     </div>
                   );
                 })}
               </div>
             ) : (
-              <p className="mt-3 rounded-xl border border-dashed border-slate-800 bg-slate-950/60 p-3 text-center text-xs text-slate-400">
-                السلة فارغة حالياً — يمكنك إضافة منتجات أو كتابة طلبك مباشرة في الملاحظات.
-              </p>
+              <div className="cart-empty">
+                <p style={{ margin: 0, fontSize: 11.5, color: '#94a3b8' }}>
+                  السلة فارغة حالياً — يمكنك إضافة أصناف أو كتابة طلبك مباشرة في الملاحظات.
+                </p>
+              </div>
             )}
 
-            <div className="mt-3 flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950 px-4 py-2.5 text-xs">
-              <span className="text-slate-400">
-                الحساب: <b className="text-slate-200">{accountLabel}</b> ({totalCount} صنف)
-              </span>
-              <strong className="text-sm font-extrabold text-emerald-400">
-                الإجمالي: {totalAmount} ج.م
-              </strong>
+            <div className="order-summary">
+              <div>
+                <span>الحساب:</span>
+                <b>{accountLabel}</b>
+              </div>
+              <div>
+                <span>الأصناف:</span>
+                <b>{totalCount}</b>
+              </div>
+              <div>
+                <span>
+                  التاجر: <b style={{ color: '#6ee7b7' }}>{activeMerchant.name}</b>
+                </span>
+                <span>
+                  التوصيل:{' '}
+                  <b>{deliveryMode === 'delivery' ? `${deliveryFee} ج.م` : 'استلام من التاجر'}</b>
+                </span>
+              </div>
+              <div>
+                <span>الإجمالي النهائي</span>
+                <b>
+                  {grandTotal} <small>ج.م</small>
+                </b>
+              </div>
             </div>
 
-            <form onSubmit={handleSubmitOrder} className="mt-4 space-y-3 text-xs">
+            <form onSubmit={handleSubmitOrder} className="order-form">
               <div>
-                <label className="mb-1 block text-slate-300">اسم العميل *</label>
+                <span className="form-hint" style={{ display: 'block', marginBottom: 8 }}>
+                  نظام التوصيل والدليفري
+                </span>
+                <div className="customer-type-switch modal-type-switch" style={{ marginBottom: 0 }}>
+                  <button
+                    type="button"
+                    onClick={() => setDeliveryMode('delivery')}
+                    className={`type-pill ${deliveryMode === 'delivery' ? 'active' : ''}`}
+                  >
+                    دليفري ({activeMerchant.courierName.split('—')[0].trim()})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDeliveryMode('pickup')}
+                    className={`type-pill ${deliveryMode === 'pickup' ? 'active' : ''}`}
+                  >
+                    استلام من التاجر
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <span className="form-hint" style={{ display: 'block', marginBottom: 8 }}>
+                  وسيلة الدفع
+                </span>
+                <div className="customer-type-switch modal-type-switch" style={{ marginBottom: 0 }}>
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('instapay')}
+                    className={`type-pill ${paymentMethod === 'instapay' ? 'active' : ''}`}
+                  >
+                    إنستاباي ({INSTAPAY_NUMBER})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPaymentMethod('wallet')}
+                    className={`type-pill ${paymentMethod === 'wallet' ? 'active' : ''}`}
+                  >
+                    المحفظة ({WALLET_NUMBER})
+                  </button>
+                </div>
+              </div>
+
+              <label>
+                <span>اسم العميل *</span>
                 <input
                   type="text"
                   value={customerName}
                   onChange={(e) => setCustomerName(e.target.value)}
-                  placeholder="اكتب اسم العميل أو اسم المنشأة"
+                  placeholder="اكتب اسم العميل أو اسم النشاط"
                   required
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-2.5 text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none"
                 />
-              </div>
+              </label>
 
-              <div>
-                <label className="mb-1 block text-slate-300">رقم الهاتف *</label>
+              <label>
+                <span>رقم الهاتف *</span>
                 <input
                   type="tel"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="01xxxxxxxxx"
                   required
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-2.5 text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none"
                 />
-              </div>
+              </label>
 
-              <div>
-                <label className="mb-1 block text-slate-300">ملاحظات</label>
+              <label>
+                <span>ملاحظات الطلب والدفع</span>
                 <textarea
                   rows={3}
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  placeholder="اكتب الأصناف المطلوبة أو عنوان التوصيل وأي ملاحظات إضافية"
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-2.5 text-white placeholder-slate-500 focus:border-emerald-500 focus:outline-none"
+                  placeholder="اكتب الأصناف المطلوبة أو بيانات التحويل وأي ملاحظات إضافية"
                 />
-              </div>
+              </label>
 
               <button
                 type="submit"
                 disabled={submitting}
-                className="w-full rounded-xl bg-emerald-600 py-3 font-extrabold text-white hover:bg-emerald-500 disabled:opacity-50 transition"
+                className="primary-button submit-button"
               >
-                {submitting ? 'جاري إرسال الطلب...' : 'تأكيد وإرسال الطلب'}
+                {submitting && <span className="spinner" />}
+                <span>{submitting ? 'جاري إرسال الطلب...' : 'تأكيد وإرسال الطلب'}</span>
               </button>
             </form>
           </div>
         </div>
       )}
 
-      {/* شريط إشعارات الحالة */}
-      {feedback && (
-        <div
-          role="status"
-          className={`fixed bottom-4 left-4 z-50 flex max-w-md items-center gap-3 rounded-2xl border px-4 py-3 text-xs shadow-2xl ${
-            feedback.error
-              ? 'border-amber-500/40 bg-slate-900 text-amber-200'
-              : 'border-emerald-500/40 bg-slate-900 text-emerald-200'
-          }`}
-        >
-          <span className="flex-1 leading-relaxed">{feedback.text}</span>
+      {/* إشعارات الحالة */}
+      {toast && (
+        <div role="status" className={`toast ${toast.error ? 'error' : ''}`}>
+          <span>{toast.error ? '⚠️' : '✓'}</span>
+          <p>{toast.text}</p>
           <button
             type="button"
-            onClick={() => setFeedback(null)}
-            className="rounded-md px-1.5 py-0.5 text-slate-400 hover:text-white"
+            onClick={() => setToast(null)}
+            aria-label="إغلاق الإشعار"
           >
             ✕
           </button>
