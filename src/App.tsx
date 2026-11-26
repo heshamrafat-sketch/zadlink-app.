@@ -9,30 +9,34 @@ runs-on: ubuntu-latest
 ​steps:
 - name: Checkout
 uses: actions/checkout@v4
-​- name: Remove zero-width spaces (\u200b) from source files
+​- name: Clean hidden characters
 run: |
 node -e '
 const fs = require("fs");
 const path = require("path");
-function cleanDir(dir) {
+function walk(dir) {
 if (!fs.existsSync(dir)) return;
-for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-const full = path.join(dir, entry.name);
-if (entry.isDirectory()) cleanDir(full);
-else if (/.(ts|tsx|js|jsx|css|html|json)$/.test(entry.name)) {
-const raw = fs.readFileSync(full, "utf8");
-const cleaned = raw.replace(/\u200b/g, "");
-if (cleaned !== raw) fs.writeFileSync(full, cleaned, "utf8");
+for (const item of fs.readdirSync(dir, { withFileTypes: true })) {
+const p = path.join(dir, item.name);
+if (item.isDirectory()) walk(p);
+else if (/.(ts|tsx|js|jsx|css|html|json)$/.test(item.name)) {
+const content = fs.readFileSync(p, "utf8");
+const cleaned = content.replace(/[\u200b-\u200f\ufeff]/g, "");
+if (cleaned !== content) fs.writeFileSync(p, cleaned, "utf8");
 }
 }
 }
-cleanDir("src");
+walk("src");
+walk("zadlink-app/src");
 '
 ​- name: Setup Node
 uses: actions/setup-node@v4
 with:
 node-version: 20
-​- name: Install dependencies and build
+​- name: Build
 run: |
+if [ -f "zadlink-app/package.json" ]; then
+cd zadlink-app
+fi
 npm ci || npm install
 npm run build
