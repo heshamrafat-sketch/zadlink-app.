@@ -12,6 +12,7 @@ interface Product {
   price: number;
   unit: string;
   description: string;
+  image: string;
   emoji: string;
   available: boolean;
 }
@@ -31,6 +32,7 @@ const PRODUCTS: Product[] = [
     price: 14,
     unit: 'كجم',
     description: 'طماطم طازجة مقطوفة يومياً ومفرزة بعناية للمطاعم والهايبر ماركت.',
+    image: '1000250092.jpg',
     emoji: '🍅',
     available: true,
   },
@@ -41,6 +43,7 @@ const PRODUCTS: Product[] = [
     price: 18,
     unit: 'كجم',
     description: 'بطاطس مخصصة للقلي والتحمير بنسبة نشا مثالية وجودة تخزين عالية.',
+    image: '1000250093.jpg',
     emoji: '🥔',
     available: true,
   },
@@ -51,6 +54,7 @@ const PRODUCTS: Product[] = [
     price: 22,
     unit: 'كجم',
     description: 'برتقال طازج غني بالعصير ومعبأ في صناديق مخصصة للنقل الآمن.',
+    image: '1000250094.jpg',
     emoji: '🍊',
     available: true,
   },
@@ -61,6 +65,7 @@ const PRODUCTS: Product[] = [
     price: 16,
     unit: 'كجم',
     description: 'بصل أحمر جاف وعالي الجودة مناسب للتخزين طويل الأمد والتوريد.',
+    image: '1000250095.jpg',
     emoji: '🧅',
     available: true,
   },
@@ -71,6 +76,7 @@ const PRODUCTS: Product[] = [
     price: 35,
     unit: 'كجم',
     description: 'فراولة منتقاة بعناية ذات حجم موحد ونكهة طبيعية غنية.',
+    image: '1000250096.jpg',
     emoji: '🍓',
     available: true,
   },
@@ -81,6 +87,7 @@ const PRODUCTS: Product[] = [
     price: 32,
     unit: 'كجم',
     description: 'أرز مصري عريض الحبة منقى إلكترونياً وخالٍ من الشوائب.',
+    image: '1000250097.jpg',
     emoji: '🌾',
     available: true,
   },
@@ -235,9 +242,13 @@ export function App() {
       setIsOrderModalOpen(false);
       showToast('تم إرسال طلبك بنجاح! سيتواصل معك فريق التوريد قريباً.');
     } catch (error) {
-      const message =
+      const rawMessage =
         error instanceof Error ? error.message : 'حدث خطأ غير متوقع أثناء الإرسال';
-      showToast(`خطأ: ${message}`, true);
+      const friendlyMessage =
+        rawMessage === 'Failed to fetch'
+          ? 'تعذر الاتصال بخادم قاعدة البيانات حالياً. تأكد من تفعيل مشروع Supabase أو تواصل معنا مباشرة على 01224966506.'
+          : rawMessage;
+      showToast(`تنبيه: ${friendlyMessage}`, true);
     } finally {
       setLoading(false);
     }
@@ -357,10 +368,10 @@ export function App() {
 
             <div className="visual-center">
               <div className="crate crate-back">
-                <span style={{ fontSize: '42px' }}>🍊</span>
+                <span style={{ fontSize: '36px' }}>🍊</span>
               </div>
               <div className="crate crate-front">
-                <span style={{ fontSize: '46px' }}>🍅</span>
+                <span style={{ fontSize: '40px' }}>🍅</span>
               </div>
               <span className="leaf leaf-one">🌿</span>
               <span className="leaf leaf-two">🍃</span>
@@ -457,6 +468,13 @@ export function App() {
                 <article key={product.id} className="product-card">
                   <div className="product-image">
                     <div className="image-orb" />
+                    <img
+                      src={product.image}
+                      alt={product.name}
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
                     <span className="product-emoji">{product.emoji}</span>
                     <div className="availability">
                       <i />
@@ -626,11 +644,11 @@ export function App() {
               </p>
 
               <div className="contact-details">
-                <a href="tel:01000000000">
+                <a href="tel:01224966506">
                   <span>📞</span>
                   <div>
                     <small>الهاتف وخدمة العملاء</small>
-                    <b dir="ltr">0100 000 0000</b>
+                    <b dir="ltr">0122 496 6506</b>
                   </div>
                 </a>
 
@@ -638,7 +656,7 @@ export function App() {
                   <span>📍</span>
                   <div>
                     <small>العنوان الرئيسي ومراكز التوزيع</small>
-                    <b>بورسعيد — المنطقة الصناعية ومركز التوزيع اللوجستي، مصر</b>
+                    <b>بورفؤاد — مساكن الطاقة الشمسية، بورسعيد، مصر</b>
                   </div>
                 </div>
 
@@ -765,7 +783,7 @@ export function App() {
               </div>
             ) : (
               <div className="cart-empty">
-                <small style={{ color: '#94a3b8' }}>
+                <small style={{ color: '#475569' }}>
                   لم تختر أصنافاً من القائمة بعد — يمكنك كتابة الأصناف المطلوبة مباشرة في خانة الملاحظات بالأسفل.
                 </small>
               </div>
