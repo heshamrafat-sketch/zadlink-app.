@@ -19,6 +19,8 @@ interface Product {
 }
 
 type CustomerType = 'wholesale' | 'retail';
+
+interface CartItem {
   product: Product;
   quantity: number;
 }
@@ -134,6 +136,20 @@ export function App() {
   }, []);
 
   // تصفية المنتجات حسب التصنيف وكلمة البحث
+  const filteredProducts = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    return PRODUCTS.filter((product) => {
+      const matchesCategory =
+        selectedCategory === 'الكل' || product.category === selectedCategory;
+      const matchesQuery =
+        !query ||
+        product.name.toLowerCase().includes(query) ||
+        product.category.toLowerCase().includes(query) ||
+        product.description.toLowerCase().includes(query);
+      return matchesCategory && matchesQuery && product.available;
+    });
+  }, [selectedCategory, searchQuery]);
+
   // دالة مساعدة للحصول على السعر المناسب حسب نوع العميل
   const getUnitPrice = (product: Product) =>
     customerType === 'wholesale' ? product.wholesalePrice : product.retailPrice;
@@ -149,11 +165,6 @@ export function App() {
   const totalCartPrice = useMemo(
     () => cart.reduce((sum, item) => sum + getUnitPrice(item.product) * item.quantity, 0),
     [cart, customerType]
-  );
-
-  const totalCartPrice = useMemo(
-    () => cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0),
-    [cart]
   );
 
   // دالة عرض الإشعار المؤقت
@@ -475,6 +486,171 @@ export function App() {
               </div>
             </div>
           </div>
+
+          {/* شريط التصنيفات */}
+          <div className="category-row" role="tablist" aria-label="تصنيفات المنتجات">
+            {categories.map((category) => (
+              <button
+                key={category}
+                type="button"
+                className={`category-chip ${selectedCategory === category ? 'active' : ''}`}
+                onClick={() => setSelectedCategory(category)}
+              >
+                {category}
+              </button>
+            ))}
+          </div>
+
+          {/* شبكة عرض المنتجات أو حالة عدم وجود نتائج */}
+          {filteredProducts.length > 0 ? (
+            <div className="product-grid">
+              {filteredProducts.map((product) => {
+                const unitPrice = getUnitPrice(product);
+                return (
+                  <article key={product.id} className="product-card">
+                    <div className="product-image">
+                      <span className="availability">
+                        <i />
+                        متوفر للتوريد
+                      </span>
+                      <div className="image-orb" />
+                      <span className="product-emoji" aria-hidden="true">
+                        {product.emoji}
+                      </span>
+                      <img
+                        src={product.image}
+                        alt={product.name}
+                        loading="lazy"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                        }}
+                      />
+                    </div>
+
+                    <div className="product-info">
+                      <span className="product-category">{product.category}</span>
+                      <h3>{product.name}</h3>
+                      <p>{product.description}</p>
+
+                      <div className="product-bottom">
+                        <div>
+                          <strong>
+                            {unitPrice} <small>ج.م / {product.unit}</small>
+                          </strong>
+                          <span>
+                            {customerType === 'wholesale'
+                              ? `سعر التاجر (قطاعي: ${product.retailPrice} ج.م)`
+                              : `سعر العميل القطاعي (تاجر: ${product.wholesalePrice} ج.م)`}
+                          </span>
+                        </div>
+
+                        <button
+                          type="button"
+                          className="add-button"
+                          onClick={() => handleAddToCart(product)}
+                        >
+                          <span>أضف للطلب</span>
+                          <strong>+</strong>
+                        </button>
+                      </div>
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="empty-state">
+              <b>لا توجد أصناف مطابقة لبحثك حالياً</b>
+              <span>جرّب كلمة بحث أخرى أو اختر تصنيف «الكل».</span>
+            </div>
+          )}
+
+          <div className="market-note">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="16" x2="12" y2="12" />
+              <line x1="12" y1="8" x2="12.01" y2="8" />
+            </svg>
+            <span>
+              تتحدث أسعار الجملة للتجار والأسعار القطاعية للعملاء بشكل شفاف حسب حركة السوق اليومية وتوافر المحاصيل الموسمية.
+            </span>
+          </div>
+        </div>
+      </section>
+
+      {/* قسم مؤشر التداول والبيانات */}
+      <section id="trade" className="section trade-section">
+        <div className="container">
+          <div className="trade-panel">
+            <div className="trade-intro">
+              <span className="section-kicker">مؤشر حركة التداول</span>
+              <h2>
+                بيانات حية لحجم <span>التوريد والتداول</span>
+              </h2>
+              <p>
+                متابعة مستمرة لمعدلات الطلب اليومية وحركة المحاصيل بين التاجر والعميل القطاعي لضمان استقرار الإمداد.
+              </p>
+              <a href="#contact" className="outline-button">
+                <span>اطلب تعاقد توريد منتظم</span>
+                <span>←</span>
+              </a>
+            </div>
+
+            <div className="metrics-grid">
+              <div className="metric-card">
+                <div className="metric-top">
+                  <span>حجم التوريد اليومي</span>
+                  <span>📈</span>
+                </div>
+                <strong>14.8 طن</strong>
+                <small>متوسط الشحنات اليومية الموزعة</small>
+              </div>
+
+              <div className="metric-card">
+                <div className="metric-top">
+                  <span>متوسط سرعة التجهيز</span>
+                  <span>⚡</span>
+                </div>
+                <strong>3.2 ساعة</strong>
+                <small>من استلام الطلب حتى خروج الشحنة</small>
+              </div>
+
+              <div className="metric-card">
+                <div className="metric-top">
+                  <span>نسبة الالتزام بالجودة</span>
+                  <span>🛡️</span>
+                </div>
+                <strong>99.2%</strong>
+                <small>مطابقة الفرز والمعايير المعتمدة</small>
+              </div>
+
+              <div className="metric-card metric-highlight">
+                <div className="metric-top">
+                  <span>فئات المستفيدين</span>
+                  <span>🤝</span>
+                </div>
+                <strong>تاجر + قطاعي</strong>
+                <small>تسعير مرن ومباشر لكل فئة</small>
+              </div>
+            </div>
+
+            <div className="trade-chart">
+              <div className="chart-heading">
+                <span>مؤشر النشاط الأسبوعي للتوريد</span>
+                <small>آخر 7 أيام</small>
+              </div>
+              <div className="chart-bars">
+                {WEEKLY_CHART_BARS.map((value, idx) => (
+                  <span key={WEEK_DAYS[idx]} style={{ height: `${value}%` }} title={`${WEEK_DAYS[idx]}: ${value}%`} />
+                ))}
+              </div>
+              <div className="chart-foot">
+                {WEEK_DAYS.map((day) => (
+                  <small key={day}>{day}</small>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -630,23 +806,6 @@ export function App() {
               </button>
             </div>
 
-                    <div className="product-bottom">
-                      <div>
-                        <strong>
-                          {getUnitPrice(product)} <small>ج.م / {product.unit}</small>
-                        </strong>
-                        <span>
-                          {customerType === 'wholesale'
-                            ? `سعر التاجر (قطاعي: ${product.retailPrice} ج.م)`
-                            : `سعر العميل القطاعي (تاجر: ${product.wholesalePrice} ج.م)`}
-                        </span>
-                      </div>
-
-                      <button
-                        type="button"
-                        className="add-button"
-                        onClick={() => handleAddToCart(product)}
-                      >
             {/* مبدل نوع العميل داخل نافذة الطلب */}
             <div className="customer-type-switch modal-type-switch" role="group" aria-label="نوع العميل">
               <button
