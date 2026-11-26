@@ -9,7 +9,8 @@ interface Product {
   id: number;
   name: string;
   category: string;
-  price: number;
+  wholesalePrice: number;
+  retailPrice: number;
   unit: string;
   description: string;
   image: string;
@@ -17,8 +18,7 @@ interface Product {
   available: boolean;
 }
 
-// واجهة عنصر السلة
-interface CartItem {
+type CustomerType = 'wholesale' | 'retail';
   product: Product;
   quantity: number;
 }
@@ -29,9 +29,10 @@ const PRODUCTS: Product[] = [
     id: 1,
     name: 'طماطم بلدي فرز أول',
     category: 'خضروات طازجة',
-    price: 14,
+    wholesalePrice: 12,
+    retailPrice: 16,
     unit: 'كجم',
-    description: 'طماطم طازجة مقطوفة يومياً ومفرزة بعناية للمطاعم والهايبر ماركت.',
+    description: 'طماطم طازجة مقطوفة يومياً ومفرزة بعناية للتجار والمطاعم والعملاء.',
     image: '1000250092.jpg',
     emoji: '🍅',
     available: true,
@@ -40,7 +41,8 @@ const PRODUCTS: Product[] = [
     id: 2,
     name: 'بطاطس تحمير اسبونتا',
     category: 'خضروات طازجة',
-    price: 18,
+    wholesalePrice: 15,
+    retailPrice: 20,
     unit: 'كجم',
     description: 'بطاطس مخصصة للقلي والتحمير بنسبة نشا مثالية وجودة تخزين عالية.',
     image: '1000250093.jpg',
@@ -51,7 +53,8 @@ const PRODUCTS: Product[] = [
     id: 3,
     name: 'برتقال بصرة للتصدير',
     category: 'فواكه موسمية',
-    price: 22,
+    wholesalePrice: 18,
+    retailPrice: 24,
     unit: 'كجم',
     description: 'برتقال طازج غني بالعصير ومعبأ في صناديق مخصصة للنقل الآمن.',
     image: '1000250094.jpg',
@@ -62,7 +65,8 @@ const PRODUCTS: Product[] = [
     id: 4,
     name: 'بصل أحمر صعيدي',
     category: 'خضروات طازجة',
-    price: 16,
+    wholesalePrice: 14,
+    retailPrice: 18,
     unit: 'كجم',
     description: 'بصل أحمر جاف وعالي الجودة مناسب للتخزين طويل الأمد والتوريد.',
     image: '1000250095.jpg',
@@ -73,7 +77,8 @@ const PRODUCTS: Product[] = [
     id: 5,
     name: 'فراولة فرتونا طازجة',
     category: 'فواكه موسمية',
-    price: 35,
+    wholesalePrice: 30,
+    retailPrice: 38,
     unit: 'كجم',
     description: 'فراولة منتقاة بعناية ذات حجم موحد ونكهة طبيعية غنية.',
     image: '1000250096.jpg',
@@ -84,7 +89,8 @@ const PRODUCTS: Product[] = [
     id: 6,
     name: 'أرز أبيض مصري فاخر',
     category: 'حبوب وبقوليات',
-    price: 32,
+    wholesalePrice: 28,
+    retailPrice: 34,
     unit: 'كجم',
     description: 'أرز مصري عريض الحبة منقى إلكترونياً وخالٍ من الشوائب.',
     image: '1000250097.jpg',
@@ -102,10 +108,11 @@ const WEEK_DAYS = ['السبت', 'الأحد', 'الاثنين', 'الثلاثا
  * يجمع بين عرض المنتجات، السلة التفاعلية، مؤشرات التداول، ونموذج إرسال الطلبات لقاعدة البيانات.
  */
 export function App() {
-  // حالات التصفح والبحث
+  // حالات التصفح والبحث ونوع العميل (تاجر أو قطاعي)
   const [selectedCategory, setSelectedCategory] = useState<string>('الكل');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
+  const [customerType, setCustomerType] = useState<CustomerType>('wholesale');
 
   // حالات سلة المشتريات ونافذة إتمام الطلب
   const [cart, setCart] = useState<CartItem[]>([]);
@@ -127,21 +134,21 @@ export function App() {
   }, []);
 
   // تصفية المنتجات حسب التصنيف وكلمة البحث
-  const filteredProducts = useMemo(() => {
-    return PRODUCTS.filter((product) => {
-      const matchesCategory =
-        selectedCategory === 'الكل' || product.category === selectedCategory;
-      const matchesQuery =
-        product.name.includes(searchQuery.trim()) ||
-        product.description.includes(searchQuery.trim());
-      return matchesCategory && matchesQuery;
-    });
-  }, [selectedCategory, searchQuery]);
+  // دالة مساعدة للحصول على السعر المناسب حسب نوع العميل
+  const getUnitPrice = (product: Product) =>
+    customerType === 'wholesale' ? product.wholesalePrice : product.retailPrice;
 
-  // حساب إجمالي العناصر والسعر في السلة
+  const customerTypeLabel = customerType === 'wholesale' ? 'تاجر (جملة)' : 'عميل قطاعي';
+
+  // حساب إجمالي العناصر والسعر في السلة حسب نوع العميل المختار
   const totalCartItems = useMemo(
     () => cart.reduce((sum, item) => sum + item.quantity, 0),
     [cart]
+  );
+
+  const totalCartPrice = useMemo(
+    () => cart.reduce((sum, item) => sum + getUnitPrice(item.product) * item.quantity, 0),
+    [cart, customerType]
   );
 
   const totalCartPrice = useMemo(
@@ -196,14 +203,15 @@ export function App() {
     const itemsSummary =
       cart.length > 0
         ? cart
-            .map(
-              (item) =>
-                `${item.product.name} (${item.quantity} ${item.product.unit} × ${item.product.price} ج.م)`
-            )
+            .map((item) => {
+              const unitPrice = getUnitPrice(item.product);
+              return `${item.product.name} (${item.quantity} ${item.product.unit} × ${unitPrice} ج.م)`;
+            })
             .join(' | ')
         : 'طلب توريد مباشر';
 
     const combinedNotes = [
+      `نوع الحساب: ${customerTypeLabel}`,
       `الأصناف: ${itemsSummary}`,
       totalCartPrice > 0 ? `الإجمالي التقديري: ${totalCartPrice} ج.م` : null,
       notes.trim() ? `ملاحظات العميل: ${notes.trim()}` : null,
@@ -324,11 +332,11 @@ export function App() {
             </div>
 
             <h1>
-              توريد المحاصيل الطازجة <span>بأسعار الجملة</span> مباشرة
+              توريد المحاصيل الطازجة <span>للتاجر والقطاعي</span> مباشرة
             </h1>
 
             <p>
-              نربط المزارع ومحطات الفرز بالمطاعم والفنادق والأسواق الكبرى بأعلى معايير الجودة، مع تسعير يومي شفاف وتوصيل سريع ومبرد.
+              نربط المزارع ومحطات الفرز بالتجار والمطاعم والعملاء القطاعي بأعلى معايير الجودة، مع تسعير واضح لكل فئة وتوصيل سريع ومبرد.
             </p>
 
             <div className="hero-buttons">
@@ -427,168 +435,43 @@ export function App() {
         <div className="container">
           <div className="section-heading">
             <div>
-              <span className="section-kicker">بورصة الأسعار اليومية</span>
+              <span className="section-kicker">قائمة الأسعار — تاجر وعميل قطاعي</span>
               <h2>
                 المنتجات المتاحة <span>للتوريد الفوري</span>
               </h2>
-              <p>اختر الأصناف والكميات المطلوبة وأرسل طلبك مباشرة ليتم تأكيده فوراً.</p>
+              <p>اختر نوع حسابك لعرض أسعار الجملة للتجار أو الأسعار القطاعية للعملاء.</p>
             </div>
 
-            <div className="search-box">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <circle cx="11" cy="11" r="8" />
-                <line x1="21" y1="21" x2="16.65" y2="16.65" />
-              </svg>
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="ابحث عن صنف (طماطم، بطاطس...)"
-              />
-              <kbd>بحث</kbd>
-            </div>
-          </div>
-
-          <div className="category-row">
-            {categories.map((cat) => (
-              <button
-                key={cat}
-                type="button"
-                className={`category-chip ${selectedCategory === cat ? 'active' : ''}`}
-                onClick={() => setSelectedCategory(cat)}
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
-
-          {filteredProducts.length > 0 ? (
-            <div className="product-grid">
-              {filteredProducts.map((product) => (
-                <article key={product.id} className="product-card">
-                  <div className="product-image">
-                    <div className="image-orb" />
-                    <img
-                      src={product.image}
-                      alt={product.name}
-                      onError={(e) => {
-                        e.currentTarget.style.display = 'none';
-                      }}
-                    />
-                    <span className="product-emoji">{product.emoji}</span>
-                    <div className="availability">
-                      <i />
-                      <span>متوفر للتوريد</span>
-                    </div>
-                  </div>
-
-                  <div className="product-info">
-                    <span className="product-category">{product.category}</span>
-                    <h3>{product.name}</h3>
-                    <p>{product.description}</p>
-
-                    <div className="product-bottom">
-                      <div>
-                        <strong>
-                          {product.price} <small>ج.م / {product.unit}</small>
-                        </strong>
-                        <span>سعر الجملة الاسترشادي اليوم</span>
-                      </div>
-
-                      <button
-                        type="button"
-                        className="add-button"
-                        onClick={() => handleAddToCart(product)}
-                      >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                          <line x1="12" y1="5" x2="12" y2="19" />
-                          <line x1="5" y1="12" x2="19" y2="12" />
-                        </svg>
-                        <span>أضف للطلب</span>
-                      </button>
-                    </div>
-                  </div>
-                </article>
-              ))}
-            </div>
-          ) : (
-            <div className="empty-state">
-              <b>لا توجد منتجات مطابقة لبحثك</b>
-              <span>جرب البحث باسم صنف آخر أو اختر تصنيف "الكل"</span>
-            </div>
-          )}
-
-          <div className="market-note">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="12" cy="12" r="10" />
-              <line x1="12" y1="16" x2="12" y2="12" />
-              <line x1="12" y1="8" x2="12.01" y2="8" />
-            </svg>
-            <span>
-              تُحدّث الأسعار يومياً وفقاً لحركة سوق العبور ومحطات التصدير، وتُمنح خصومات إضافية للكميات الكبيرة والعقود الشهرية.
-            </span>
-          </div>
-        </div>
-      </section>
-
-      {/* قسم مؤشرات التداول */}
-      <section id="trade" className="section trade-section">
-        <div className="container">
-          <div className="trade-panel">
-            <div className="trade-intro">
-              <span className="section-kicker">بيانات السوق والتداول</span>
-              <h2>
-                مؤشر حركة <span>التوريد والأسعار</span>
-              </h2>
-              <p>
-                نراقب حجم الطلبات وتوافر المحاصيل لحظة بلحظة لضمان استقرار الأسعار وتوفير احتياجات شركائنا دون انقطاع.
-              </p>
-
-              <button
-                type="button"
-                className="outline-button"
-                onClick={() => setIsOrderModalOpen(true)}
-              >
-                <span>اطلب تسعيرة مخصصة للكميات</span>
-              </button>
-            </div>
-
-            <div className="metrics-grid">
-              <div className="metric-card">
-                <div className="metric-top">
-                  <span>حجم التوريد الأسبوعي</span>
-                  <span>📈</span>
-                </div>
-                <strong>148 طن</strong>
-                <small>+14% مقارنة بالأسبوع الماضي</small>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center' }}>
+              <div className="customer-type-switch" role="group" aria-label="نوع العميل">
+                <button
+                  type="button"
+                  className={`type-pill ${customerType === 'wholesale' ? 'active' : ''}`}
+                  onClick={() => setCustomerType('wholesale')}
+                >
+                  تاجر (جملة)
+                </button>
+                <button
+                  type="button"
+                  className={`type-pill ${customerType === 'retail' ? 'active' : ''}`}
+                  onClick={() => setCustomerType('retail')}
+                >
+                  عميل قطاعي
+                </button>
               </div>
 
-              <div className="metric-card metric-highlight">
-                <div className="metric-top">
-                  <span>حالة السوق اليوم</span>
-                  <span>●</span>
-                </div>
-                <strong>مستقر ومتوفر</strong>
-                <small>توافر مرتفع للخضروات الأساسية</small>
-              </div>
-
-              <div className="trade-chart">
-                <div className="chart-heading">
-                  <span>نشاط التوريد خلال أيام الأسبوع</span>
-                  <small>تحديث مباشر</small>
-                </div>
-
-                <div className="chart-bars">
-                  {WEEKLY_CHART_BARS.map((height, idx) => (
-                    <span key={idx} style={{ height: `${height}%` }} />
-                  ))}
-                </div>
-
-                <div className="chart-foot">
-                  {WEEK_DAYS.map((day) => (
-                    <span key={day}>{day}</span>
-                  ))}
-                </div>
+              <div className="search-box">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <circle cx="11" cy="11" r="8" />
+                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="ابحث عن صنف (طماطم، بطاطس...)"
+                />
+                <kbd>بحث</kbd>
               </div>
             </div>
           </div>
@@ -747,39 +630,77 @@ export function App() {
               </button>
             </div>
 
+                    <div className="product-bottom">
+                      <div>
+                        <strong>
+                          {getUnitPrice(product)} <small>ج.م / {product.unit}</small>
+                        </strong>
+                        <span>
+                          {customerType === 'wholesale'
+                            ? `سعر التاجر (قطاعي: ${product.retailPrice} ج.م)`
+                            : `سعر العميل القطاعي (تاجر: ${product.wholesalePrice} ج.م)`}
+                        </span>
+                      </div>
+
+                      <button
+                        type="button"
+                        className="add-button"
+                        onClick={() => handleAddToCart(product)}
+                      >
+            {/* مبدل نوع العميل داخل نافذة الطلب */}
+            <div className="customer-type-switch modal-type-switch" role="group" aria-label="نوع العميل">
+              <button
+                type="button"
+                className={`type-pill ${customerType === 'wholesale' ? 'active' : ''}`}
+                onClick={() => setCustomerType('wholesale')}
+              >
+                تاجر (جملة)
+              </button>
+              <button
+                type="button"
+                className={`type-pill ${customerType === 'retail' ? 'active' : ''}`}
+                onClick={() => setCustomerType('retail')}
+              >
+                عميل قطاعي
+              </button>
+            </div>
+
             {/* محتويات السلة داخل النافذة */}
             {cart.length > 0 ? (
               <div className="cart-lines">
-                {cart.map((item) => (
-                  <div key={item.product.id} className="cart-line">
-                    <div className="cart-line-info">
-                      <b>{item.product.name}</b>
-                      <small>
-                        {item.product.price} ج.م / {item.product.unit}
-                      </small>
-                    </div>
+                {cart.map((item) => {
+                  const unitPrice = getUnitPrice(item.product);
+                  return (
+                    <div key={item.product.id} className="cart-line">
+                      <div className="cart-line-info">
+                        <b>{item.product.name}</b>
+                        <small>
+                          {unitPrice} ج.م / {item.product.unit} ({customerTypeLabel})
+                        </small>
+                      </div>
 
-                    <div className="cart-quantity">
-                      <button
-                        type="button"
-                        onClick={() => updateCartQuantity(item.product.id, -1)}
-                      >
-                        -
-                      </button>
-                      <strong>{item.quantity}</strong>
-                      <button
-                        type="button"
-                        onClick={() => updateCartQuantity(item.product.id, 1)}
-                      >
-                        +
-                      </button>
-                    </div>
+                      <div className="cart-quantity">
+                        <button
+                          type="button"
+                          onClick={() => updateCartQuantity(item.product.id, -1)}
+                        >
+                          -
+                        </button>
+                        <strong>{item.quantity}</strong>
+                        <button
+                          type="button"
+                          onClick={() => updateCartQuantity(item.product.id, 1)}
+                        >
+                          +
+                        </button>
+                      </div>
 
-                    <strong className="cart-line-total">
-                      {item.product.price * item.quantity} ج.م
-                    </strong>
-                  </div>
-                ))}
+                      <strong className="cart-line-total">
+                        {unitPrice * item.quantity} ج.م
+                      </strong>
+                    </div>
+                  );
+                })}
               </div>
             ) : (
               <div className="cart-empty">
@@ -792,7 +713,7 @@ export function App() {
             <div className="order-summary">
               <div>
                 <span>📦</span>
-                <span>عدد الأصناف المختارة</span>
+                <span>نوع الحساب ({customerTypeLabel})</span>
               </div>
               <b>{totalCartItems} صنف</b>
 
