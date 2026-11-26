@@ -4,7 +4,7 @@ import React, { useState, useMemo } from 'react';
 const SUPABASE_URL = 'https://asspfwcgvnveejobxrm.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_Eqym1DI9Vyp5zSliHweaRw_1cwRfIN9';
 
-// واجهة بيانات المنتج
+// واجهة بيانات المنتج الشامل (طعام، مستلزمات البيت، سوبر ماركت)
 interface Product {
   id: number;
   name: string;
@@ -25,117 +25,111 @@ interface CartItem {
   quantity: number;
 }
 
-// قائمة المنتجات الزراعية والغذائية المتاحة للتوريد
+// قائمة المنتجات المتنوعة للطعام ومستلزمات البيت والسوبر ماركت
 const PRODUCTS: Product[] = [
   {
     id: 1,
-    name: 'طماطم بلدي فرز أول',
-    category: 'خضروات طازجة',
-    wholesalePrice: 12,
-    retailPrice: 16,
+    name: 'أرز أبيض مصري فاخر (شكارة / عبوة)',
+    category: 'بقالة وسلع أساسية',
+    wholesalePrice: 26,
+    retailPrice: 32,
     unit: 'كجم',
-    description: 'طماطم طازجة مقطوفة يومياً ومفرزة بعناية للتجار والمطاعم والعملاء.',
+    description: 'أرز مصري نقي عريض الحبة مناسب للبيت والسوبر ماركت والتجار.',
     image: '1000250092.jpg',
-    emoji: '🍅',
+    emoji: '🌾',
     available: true,
   },
   {
     id: 2,
-    name: 'بطاطس تحمير اسبونتا',
-    category: 'خضروات طازجة',
-    wholesalePrice: 15,
-    retailPrice: 20,
-    unit: 'كجم',
-    description: 'بطاطس مخصصة للقلي والتحمير بنسبة نشا مثالية وجودة تخزين عالية.',
+    name: 'زيوت طعام نقية ومعلبات غذائية',
+    category: 'زيوت ومعلبات',
+    wholesalePrice: 68,
+    retailPrice: 80,
+    unit: 'عبوة',
+    description: 'تشكيلة زيوت قلي وطهي ومعلبات غذائية بجودة عالية وتوريد منتظم.',
     image: '1000250093.jpg',
-    emoji: '🥔',
+    emoji: '🫙',
     available: true,
   },
   {
     id: 3,
-    name: 'برتقال بصرة للتصدير',
-    category: 'فواكه موسمية',
+    name: 'خضروات وفواكه طازجة يومياً',
+    category: 'طعام وطازج',
     wholesalePrice: 18,
     retailPrice: 24,
     unit: 'كجم',
-    description: 'برتقال طازج غني بالعصير ومعبأ في صناديق مخصصة للنقل الآمن.',
+    description: 'أصناف طازجة ومفرزة يومياً للمنازل والمطاعم ومحلات السوبر ماركت.',
     image: '1000250094.jpg',
-    emoji: '🍊',
+    emoji: '🛒',
     available: true,
   },
   {
     id: 4,
-    name: 'بصل أحمر صعيدي',
-    category: 'خضروات طازجة',
-    wholesalePrice: 14,
-    retailPrice: 18,
-    unit: 'كجم',
-    description: 'بصل أحمر جاف وعالي الجودة مناسب للتخزين طويل الأمد والتوريد.',
+    name: 'منظفات وعناية بالمنزل',
+    category: 'مستلزمات البيت والمنظفات',
+    wholesalePrice: 45,
+    retailPrice: 58,
+    unit: 'عبوة',
+    description: 'مساحيق غسيل ومطهرات ومنظفات أسطح ومستلزمات نظافة يومية للمنزل.',
     image: '1000250095.jpg',
-    emoji: '🧅',
+    emoji: '🧴',
     available: true,
   },
   {
     id: 5,
-    name: 'فراولة فرتونا طازجة',
-    category: 'فواكه موسمية',
-    wholesalePrice: 30,
-    retailPrice: 38,
-    unit: 'كجم',
-    description: 'فراولة منتقاة بعناية ذات حجم موحد ونكهة طبيعية غنية.',
+    name: 'ألبان وأجبان ومخبوزات',
+    category: 'ألبان ومخبوزات',
+    wholesalePrice: 34,
+    retailPrice: 42,
+    unit: 'عبوة',
+    description: 'منتجات ألبان وأجبان ومخبوزات طازجة لاحتياجات الأسرة والسوبر ماركت.',
     image: '1000250096.jpg',
-    emoji: '🍓',
+    emoji: '🧀',
     available: true,
   },
   {
     id: 6,
-    name: 'أرز أبيض مصري فاخر',
-    category: 'حبوب وبقوليات',
-    wholesalePrice: 28,
-    retailPrice: 34,
-    unit: 'كجم',
-    description: 'أرز مصري عريض الحبة منقى إلكترونياً وخالٍ من الشوائب.',
+    name: 'مستلزمات ورقية وأدوات مطبخ',
+    category: 'مستلزمات البيت والمنظفات',
+    wholesalePrice: 29,
+    retailPrice: 38,
+    unit: 'عبوة',
+    description: 'مناديل ورقية، أكياس حفظ وتغليف، وأدوات منزلية عملية للاستخدام اليومي.',
     image: '1000250097.jpg',
-    emoji: '🌾',
+    emoji: '🧺',
     available: true,
   },
 ];
 
-// بيانات مؤشر التداول الأسبوعي
-const WEEKLY_CHART_BARS = [42, 58, 51, 74, 68, 86, 94];
+// بيانات مؤشر التداول الأسبوعي للمنصة
+const WEEKLY_CHART_BARS = [45, 62, 56, 78, 72, 88, 95];
 const WEEK_DAYS = ['السبت', 'الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة'];
 
 /**
  * المكون الرئيسي لمنصة زاد لينك (ZadLink)
- * يجمع بين عرض المنتجات، السلة التفاعلية، مؤشرات التداول، ونموذج إرسال الطلبات لقاعدة البيانات.
+ * منصة شاملة للطعام ومستلزمات البيت والسوبر ماركت للتاجر والعميل القطاعي.
  */
 export function App() {
-  // حالات التصفح والبحث ونوع العميل (تاجر أو قطاعي)
   const [selectedCategory, setSelectedCategory] = useState<string>('الكل');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [mobileMenuOpen, setMobileMenuOpen] = useState<boolean>(false);
-  const [customerType, setCustomerType] = useState<CustomerType>('wholesale');
+  const [customerType, setCustomerType] = useState<CustomerType>('retail');
 
-  // حالات سلة المشتريات ونافذة إتمام الطلب
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isOrderModalOpen, setIsOrderModalOpen] = useState<boolean>(false);
 
-  // حالات نموذج العميل وإرسال الطلب
   const [customerName, setCustomerName] = useState<string>('');
   const [phone, setPhone] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
 
-  // حالة الإشعار المنبثق (Toast)
   const [toast, setToast] = useState<{ message: string; isError: boolean } | null>(null);
 
-  // استخراج التصنيفات المتاحة
   const categories = useMemo(() => {
     const unique = Array.from(new Set(PRODUCTS.map((p) => p.category)));
     return ['الكل', ...unique];
   }, []);
 
-  // تصفية المنتجات حسب التصنيف وكلمة البحث
   const filteredProducts = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
     return PRODUCTS.filter((product) => {
@@ -150,13 +144,11 @@ export function App() {
     });
   }, [selectedCategory, searchQuery]);
 
-  // دالة مساعدة للحصول على السعر المناسب حسب نوع العميل
   const getUnitPrice = (product: Product) =>
     customerType === 'wholesale' ? product.wholesalePrice : product.retailPrice;
 
   const customerTypeLabel = customerType === 'wholesale' ? 'تاجر (جملة)' : 'عميل قطاعي';
 
-  // حساب إجمالي العناصر والسعر في السلة حسب نوع العميل المختار
   const totalCartItems = useMemo(
     () => cart.reduce((sum, item) => sum + item.quantity, 0),
     [cart]
@@ -167,12 +159,10 @@ export function App() {
     [cart, customerType]
   );
 
-  // دالة عرض الإشعار المؤقت
   function showToast(message: string, isError = false) {
     setToast({ message, isError });
   }
 
-  // إضافة منتج إلى السلة
   function handleAddToCart(product: Product) {
     setCart((prev) => {
       const existing = prev.find((item) => item.product.id === product.id);
@@ -188,7 +178,6 @@ export function App() {
     showToast(`تمت إضافة "${product.name}" إلى سلة الطلبات`);
   }
 
-  // تعديل الكمية داخل السلة
   function updateCartQuantity(productId: number, delta: number) {
     setCart((prev) =>
       prev
@@ -201,7 +190,6 @@ export function App() {
     );
   }
 
-  // إرسال الطلب النهائي إلى Supabase
   async function handleOrderSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
 
@@ -210,7 +198,6 @@ export function App() {
       return;
     }
 
-    // تجهيز ملخص الأصناف المطلوبة لإرفاقه مع الملاحظات
     const itemsSummary =
       cart.length > 0
         ? cart
@@ -219,7 +206,7 @@ export function App() {
               return `${item.product.name} (${item.quantity} ${item.product.unit} × ${unitPrice} ج.م)`;
             })
             .join(' | ')
-        : 'طلب توريد مباشر';
+        : 'طلب مباشر من السوبر ماركت / مستلزمات البيت';
 
     const combinedNotes = [
       `نوع الحساب: ${customerTypeLabel}`,
@@ -253,13 +240,12 @@ export function App() {
         throw new Error(errorText || 'تعذر تسجيل الطلب في قاعدة البيانات');
       }
 
-      // إعادة ضبط الحقول والسلة بعد النجاح
       setCustomerName('');
       setPhone('');
       setNotes('');
       setCart([]);
       setIsOrderModalOpen(false);
-      showToast('تم إرسال طلبك بنجاح! سيتواصل معك فريق التوريد قريباً.');
+      showToast('تم إرسال طلبك بنجاح! سيتواصل معك فريق زاد لينك قريباً.');
     } catch (error) {
       const rawMessage =
         error instanceof Error ? error.message : 'حدث خطأ غير متوقع أثناء الإرسال';
@@ -295,7 +281,7 @@ export function App() {
           <nav className={`nav-links ${mobileMenuOpen ? 'open' : ''}`}>
             <a href="#products" onClick={() => setMobileMenuOpen(false)}>المنتجات والأسعار</a>
             <a href="#trade" onClick={() => setMobileMenuOpen(false)}>مؤشر التداول</a>
-            <a href="#steps" onClick={() => setMobileMenuOpen(false)}>آلية التوريد</a>
+            <a href="#steps" onClick={() => setMobileMenuOpen(false)}>آلية الطلب</a>
             <a href="#contact" onClick={() => setMobileMenuOpen(false)}>تواصل معنا</a>
           </nav>
 
@@ -330,7 +316,7 @@ export function App() {
         </div>
       </header>
 
-      {/* القسم الافتتاحي (Hero) */}
+      {/* القسم الافتتاحي */}
       <section id="top" className="hero">
         <div className="hero-glow glow-one" />
         <div className="hero-glow glow-two" />
@@ -339,15 +325,15 @@ export function App() {
           <div className="hero-copy">
             <div className="eyebrow">
               <span className="pulse-dot" />
-              منصة التوريد الغذائي والزراعي الذكية
+              زاد لينك • سوق متكامل للطعام ومستلزمات البيت والسوبر ماركت
             </div>
 
             <h1>
-              توريد المحاصيل الطازجة <span>للتاجر والقطاعي</span> مباشرة
+              كل احتياجات الطعام <span>ومستلزمات البيت</span> للتاجر والقطاعي
             </h1>
 
             <p>
-              نربط المزارع ومحطات الفرز بالتجار والمطاعم والعملاء القطاعي بأعلى معايير الجودة، مع تسعير واضح لكل فئة وتوصيل سريع ومبرد.
+              منصة زاد لينك تجمع كل ما تحتاجه الأسرة والسوبر ماركت والتجار من مواد غذائية، بقالة، منظفات، ومستلزمات منزلية بتسعير واضح وتوصيل سريع.
             </p>
 
             <div className="hero-buttons">
@@ -356,7 +342,7 @@ export function App() {
                 className="primary-button"
                 onClick={() => setIsOrderModalOpen(true)}
               >
-                <span>سجّل طلب توريد الآن</span>
+                <span>سجّل طلبك الآن</span>
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
                   <line x1="19" y1="12" x2="5" y2="12" />
                   <polyline points="12 19 5 12 12 5" />
@@ -364,19 +350,19 @@ export function App() {
               </button>
 
               <a href="#products" className="text-button">
-                <span>استكشف قائمة الأسعار</span>
+                <span>تصفح المنتجات والأسعار</span>
               </a>
             </div>
 
             <div className="hero-proof">
               <div className="proof-avatars">
-                <span>م</span>
-                <span>أ</span>
-                <span>س</span>
+                <span>ز</span>
+                <span>ل</span>
+                <span>ك</span>
               </div>
               <div>
-                <strong>أكثر من +320 منشأة ومطعم</strong>
-                <small>تعتمد على زاد لينك في التوريد اليومي</small>
+                <strong>خدمة التاجر والعميل القطاعي</strong>
+                <small>طعام • مستلزمات بيت • سوبر ماركت</small>
               </div>
             </div>
           </div>
@@ -387,34 +373,34 @@ export function App() {
 
             <div className="visual-center">
               <div className="crate crate-back">
-                <span style={{ fontSize: '36px' }}>🍊</span>
+                <span style={{ fontSize: '36px' }}>🛒</span>
               </div>
               <div className="crate crate-front">
-                <span style={{ fontSize: '40px' }}>🍅</span>
+                <span style={{ fontSize: '40px' }}>🧺</span>
               </div>
-              <span className="leaf leaf-one">🌿</span>
-              <span className="leaf leaf-two">🍃</span>
+              <span className="leaf leaf-one">✨</span>
+              <span className="leaf leaf-two">🌿</span>
             </div>
 
             <div className="floating-card card-delivery">
               <div className="mini-icon">🚚</div>
               <div>
-                <b>توصيل مبرد سريع</b>
-                <small>خلال 24 ساعة لباب منشأتك</small>
+                <b>توصيل سريع للمنزل والمتجر</b>
+                <small>طلب سهل ومباشر للبيت والتاجر</small>
               </div>
             </div>
 
             <div className="floating-card card-quality">
               <div className="quality-icon">✓</div>
               <div>
-                <b>فرز أول معتمد</b>
-                <small>مطابق لمواصفات الجودة والسلامة</small>
+                <b>تنوع شامل وسوبر ماركت</b>
+                <small>غذاء، بقالة، ومستلزمات منزلية</small>
               </div>
             </div>
 
             <div className="visual-label">
               <span />
-              LIVE SUPPLY NETWORK • EGYPT
+              ZADLINK MARKET • WHOLESALE &amp; RETAIL
             </div>
           </div>
         </div>
@@ -422,20 +408,20 @@ export function App() {
         <div className="container">
           <div className="hero-stats">
             <div>
-              <strong>+45</strong>
-              <span>صنف زراعي طازج</span>
+              <strong>+120</strong>
+              <span>صنف غذائي ومنزلي</span>
             </div>
             <div>
-              <strong>99.4%</strong>
-              <span>دقة مواعيد التسليم</span>
+              <strong>جملة + قطاعي</strong>
+              <span>تسعير مرن لكل فئة</span>
             </div>
             <div>
               <strong>24/7</strong>
-              <span>متابعة مستمرة للطلبات</span>
+              <span>استقبال الطلبات يومياً</span>
             </div>
             <div>
-              <strong>0%</strong>
-              <span>وسطاء إضافيون</span>
+              <strong>سريع</strong>
+              <span>تجهيز وتوصيل منظم</span>
             </div>
           </div>
         </div>
@@ -446,9 +432,9 @@ export function App() {
         <div className="container">
           <div className="section-heading">
             <div>
-              <span className="section-kicker">قائمة الأسعار — تاجر وعميل قطاعي</span>
+              <span className="section-kicker">قائمة المنتجات — تاجر وعميل قطاعي</span>
               <h2>
-                المنتجات المتاحة <span>للتوريد الفوري</span>
+                منتجات الطعام <span>ومستلزمات البيت</span>
               </h2>
               <p>اختر نوع حسابك لعرض أسعار الجملة للتجار أو الأسعار القطاعية للعملاء.</p>
             </div>
@@ -480,14 +466,13 @@ export function App() {
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="ابحث عن صنف (طماطم، بطاطس...)"
+                  placeholder="ابحث عن أرز، زيوت، منظفات..."
                 />
                 <kbd>بحث</kbd>
               </div>
             </div>
           </div>
 
-          {/* شريط التصنيفات */}
           <div className="category-row" role="tablist" aria-label="تصنيفات المنتجات">
             {categories.map((category) => (
               <button
@@ -501,7 +486,6 @@ export function App() {
             ))}
           </div>
 
-          {/* شبكة عرض المنتجات أو حالة عدم وجود نتائج */}
           {filteredProducts.length > 0 ? (
             <div className="product-grid">
               {filteredProducts.map((product) => {
@@ -511,7 +495,7 @@ export function App() {
                     <div className="product-image">
                       <span className="availability">
                         <i />
-                        متوفر للتوريد
+                        متوفر بالمنصة
                       </span>
                       <div className="image-orb" />
                       <span className="product-emoji" aria-hidden="true">
@@ -560,7 +544,7 @@ export function App() {
             </div>
           ) : (
             <div className="empty-state">
-              <b>لا توجد أصناف مطابقة لبحثك حالياً</b>
+              <b>لا توجد منتجات مطابقة لبحثك حالياً</b>
               <span>جرّب كلمة بحث أخرى أو اختر تصنيف «الكل».</span>
             </div>
           )}
@@ -572,26 +556,26 @@ export function App() {
               <line x1="12" y1="8" x2="12.01" y2="8" />
             </svg>
             <span>
-              تتحدث أسعار الجملة للتجار والأسعار القطاعية للعملاء بشكل شفاف حسب حركة السوق اليومية وتوافر المحاصيل الموسمية.
+              تتوفر خيارات الشراء للتاجر بسعر الجملة وللعميل القطاعي بسعر التجزئة، مع إمكانية إضافة أي أصناف أو طلبات منزلية إضافية في نموذج الطلب.
             </span>
           </div>
         </div>
       </section>
 
-      {/* قسم مؤشر التداول والبيانات */}
+      {/* قسم مؤشر التداول والنشاط */}
       <section id="trade" className="section trade-section">
         <div className="container">
           <div className="trade-panel">
             <div className="trade-intro">
-              <span className="section-kicker">مؤشر حركة التداول</span>
+              <span className="section-kicker">مؤشر حركة التداول والطلبات</span>
               <h2>
-                بيانات حية لحجم <span>التوريد والتداول</span>
+                بيانات حية لحركة <span>البيع والتوريد</span>
               </h2>
               <p>
-                متابعة مستمرة لمعدلات الطلب اليومية وحركة المحاصيل بين التاجر والعميل القطاعي لضمان استقرار الإمداد.
+                متابعة مستمرة لحركة الطلبات اليومية بين التاجر والعميل القطاعي عبر أقسام الطعام ومستلزمات البيت والسوبر ماركت.
               </p>
               <a href="#contact" className="outline-button">
-                <span>اطلب تعاقد توريد منتظم</span>
+                <span>تواصل لترتيب طلباتك</span>
                 <span>←</span>
               </a>
             </div>
@@ -599,44 +583,44 @@ export function App() {
             <div className="metrics-grid">
               <div className="metric-card">
                 <div className="metric-top">
-                  <span>حجم التوريد اليومي</span>
+                  <span>حجم الطلبات اليومي</span>
                   <span>📈</span>
                 </div>
-                <strong>14.8 طن</strong>
-                <small>متوسط الشحنات اليومية الموزعة</small>
+                <strong>+240 طلب</strong>
+                <small>طلبات منزلية وتجارية يومية</small>
               </div>
 
               <div className="metric-card">
                 <div className="metric-top">
-                  <span>متوسط سرعة التجهيز</span>
+                  <span>سرعة تجهيز السلة</span>
                   <span>⚡</span>
                 </div>
-                <strong>3.2 ساعة</strong>
-                <small>من استلام الطلب حتى خروج الشحنة</small>
+                <strong>سريع</strong>
+                <small>تجهيز منظم ومباشر للطلبات</small>
               </div>
 
               <div className="metric-card">
                 <div className="metric-top">
-                  <span>نسبة الالتزام بالجودة</span>
-                  <span>🛡️</span>
+                  <span>تنوع الأصناف</span>
+                  <span>🛍️</span>
                 </div>
-                <strong>99.2%</strong>
-                <small>مطابقة الفرز والمعايير المعتمدة</small>
+                <strong>شامل</strong>
+                <small>طعام، بقالة، ومستلزمات منزلية</small>
               </div>
 
               <div className="metric-card metric-highlight">
                 <div className="metric-top">
-                  <span>فئات المستفيدين</span>
+                  <span>نظام التسعير</span>
                   <span>🤝</span>
                 </div>
                 <strong>تاجر + قطاعي</strong>
-                <small>تسعير مرن ومباشر لكل فئة</small>
+                <small>أسعار واضحة لكل نوع عميل</small>
               </div>
             </div>
 
             <div className="trade-chart">
               <div className="chart-heading">
-                <span>مؤشر النشاط الأسبوعي للتوريد</span>
+                <span>مؤشر النشاط الأسبوعي للمنصة</span>
                 <small>آخر 7 أيام</small>
               </div>
               <div className="chart-bars">
@@ -654,13 +638,13 @@ export function App() {
         </div>
       </section>
 
-      {/* قسم خطوات العمل */}
+      {/* قسم آلية الطلب */}
       <section id="steps" className="section">
         <div className="container">
           <div className="center-heading">
             <span className="section-kicker">كيف نعمل</span>
             <h2>
-              ثلاث خطوات بسيطة <span>لإتمام توريدك</span>
+              ثلاث خطوات بسيطة <span>لإتمام طلبك</span>
             </h2>
           </div>
 
@@ -669,21 +653,21 @@ export function App() {
               <span className="step-number">01</span>
               <div className="step-icon">🛒</div>
               <h3>اختر الأصناف والكميات</h3>
-              <p>تصفح قائمة المنتجات اليومية وأضف الأصناف المطلوبة إلى سلة الطلبات أو اكتب احتياجاتك مباشرة.</p>
+              <p>أضف منتجات الطعام ومستلزمات البيت إلى السلة أو اكتب قائمة احتياجاتك كاملة.</p>
             </div>
 
             <div className="step-card">
               <span className="step-number">02</span>
               <div className="step-icon">📋</div>
-              <h3>سجّل بيانات التواصل</h3>
-              <p>أدخل اسمك أو اسم المنشأة ورقم الهاتف وأي ملاحظات حول مواعيد الاستلام أو المواصفات المطلوبة.</p>
+              <h3>سجّل بياناتك وتفاصيل التوصيل</h3>
+              <p>أدخل اسمك ورقم هاتفك وملاحظات العنوان ليتم حفظ طلبك في النظام فوراً.</p>
             </div>
 
             <div className="step-card">
               <span className="step-number">03</span>
               <div className="step-icon">🚚</div>
-              <h3>التأكيد والتوصيل السريع</h3>
-              <p>يراجع فريق المبيعات طلبك فوراً ويتم تجهيز الشحنة وتوصيلها في الموعد المحدد بأعلى جودة.</p>
+              <h3>التأكيد والتوصيل</h3>
+              <p>يتم مراجعة طلبك وتأكيد الأصناف والأسعار والتوصيل إلى باب منزلك أو متجرك.</p>
             </div>
           </div>
         </div>
@@ -694,12 +678,12 @@ export function App() {
         <div className="container">
           <div className="contact-panel">
             <div className="contact-copy">
-              <span className="section-kicker">التواصل والمقر</span>
+              <span className="section-kicker">التواصل والعنوان</span>
               <h2>
-                تواصل مع <span>فريق زاد لينك</span>
+                تواصل مع <span>زاد لينك</span>
               </h2>
               <p>
-                فريقنا جاهز للرد على استفسارات التوريد والتعاقدات الدورية للمطاعم والفنادق والأسواق التجارية.
+                نسعد باستقبال طلبات العملاء القطاعي والتجار وطلبات السوبر ماركت ومستلزمات البيت على مدار الساعة.
               </p>
 
               <div className="contact-details">
@@ -714,7 +698,7 @@ export function App() {
                 <div>
                   <span>📍</span>
                   <div>
-                    <small>العنوان الرئيسي ومراكز التوزيع</small>
+                    <small>العنوان</small>
                     <b>بورفؤاد — مساكن الطاقة الشمسية، بورسعيد، مصر</b>
                   </div>
                 </div>
@@ -722,7 +706,7 @@ export function App() {
                 <div>
                   <span>⏰</span>
                   <div>
-                    <small>مواعيد استقبال الطلبات</small>
+                    <small>مواعيد العمل والطلبات</small>
                     <b>يومياً على مدار 24 ساعة</b>
                   </div>
                 </div>
@@ -731,15 +715,15 @@ export function App() {
 
             <div className="contact-side">
               <div className="contact-side-top">
-                <div className="contact-symbol">🌱</div>
+                <div className="contact-symbol">🛍️</div>
                 <div className="online-label">
                   <i />
                   <span>استقبال الطلبات متاح الآن</span>
                 </div>
               </div>
 
-              <h3>ابدأ طلبك الأول خلال ثوانٍ</h3>
-              <p>سجّل بياناتك في نموذج الطلبات المباشر وسيتم حفظ طلبك وتأكيده فوراً.</p>
+              <h3>اطلب كل ما تحتاجه بسهولة</h3>
+              <p>اختر بين حساب تاجر أو عميل قطاعي وأرسل طلبك مباشرة عبر نموذج الطلبات.</p>
 
               <button
                 type="button"
@@ -760,7 +744,7 @@ export function App() {
         </div>
       </section>
 
-      {/* التذييل (Footer) */}
+      {/* التذييل */}
       <footer className="footer">
         <div className="container footer-inner">
           <div className="brand footer-brand">
@@ -776,13 +760,13 @@ export function App() {
             </div>
           </div>
 
-          <span>© {new Date().getFullYear()} زاد لينك للتوريدات الغذائية والزراعية. جميع الحقوق محفوظة.</span>
+          <span>© {new Date().getFullYear()} زاد لينك — كل الطعام ومستلزمات البيت والسوبر ماركت. جميع الحقوق محفوظة.</span>
 
           <a href="#top">العودة للأعلى ↑</a>
         </div>
       </footer>
 
-      {/* نافذة سلة المشتريات وإرسال الطلب إلى Supabase */}
+      {/* نافذة سلة الطلبات وإرسال الطلب */}
       {isOrderModalOpen && (
         <div
           className="modal-backdrop"
@@ -806,7 +790,6 @@ export function App() {
               </button>
             </div>
 
-            {/* مبدل نوع العميل داخل نافذة الطلب */}
             <div className="customer-type-switch modal-type-switch" role="group" aria-label="نوع العميل">
               <button
                 type="button"
@@ -824,7 +807,6 @@ export function App() {
               </button>
             </div>
 
-            {/* محتويات السلة داخل النافذة */}
             {cart.length > 0 ? (
               <div className="cart-lines">
                 {cart.map((item) => {
@@ -863,7 +845,7 @@ export function App() {
               </div>
             ) : (
               <div className="cart-empty">
-                <small style={{ color: '#475569' }}>
+                <small style={{ color: '#94a3b8' }}>
                   لم تختر أصنافاً من القائمة بعد — يمكنك كتابة الأصناف المطلوبة مباشرة في خانة الملاحظات بالأسفل.
                 </small>
               </div>
@@ -891,7 +873,7 @@ export function App() {
                   type="text"
                   value={customerName}
                   onChange={(e) => setCustomerName(e.target.value)}
-                  placeholder="اكتب اسم العميل أو اسم المطعم"
+                  placeholder="اكتب اسم العميل أو اسم المتجر"
                   required
                 />
               </label>
@@ -934,7 +916,7 @@ export function App() {
         </div>
       )}
 
-      {/* إشعار الحالة (Toast) */}
+      {/* إشعار الحالة */}
       {toast && (
         <div className={`toast ${toast.isError ? 'error' : ''}`} role="status">
           <span>{toast.isError ? '⚠️' : '✅'}</span>
