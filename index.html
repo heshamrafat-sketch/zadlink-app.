@@ -223,7 +223,7 @@
     function App() {
       const [customerType, setCustomerType] = useState('retail');
       const [deliveryMode, setDeliveryMode] = useState('delivery');
-      const [paymentMethod, setPaymentMethod] = useState('instapay');
+      const [paymentMethod, setPaymentMethod] = useState('cod');
       const [merchantId, setMerchantId] = useState('hub-1');
       const [category, setCategory] = useState('الكل');
       const [query, setQuery] = useState('');
@@ -307,9 +307,11 @@
           : 'طلب مباشر';
 
         const paymentText =
-          paymentMethod === 'instapay'
-            ? `إنستاباي (${INSTAPAY_NUMBER})`
-            : `محفظة (${WALLET_NUMBER})`;
+          paymentMethod === 'cod'
+            ? 'الدفع عند الاستلام'
+            : paymentMethod === 'instapay'
+              ? `إنستاباي (${INSTAPAY_NUMBER})`
+              : `محفظة (${WALLET_NUMBER})`;
 
         const deliveryText =
           deliveryMode === 'delivery'
@@ -420,10 +422,10 @@
                     </div>
                   </div>
                   <div className="info-card">
-                    <span>💳</span>
+                    <span>💵</span>
                     <div>
-                      <b>إنستاباي والمحفظة</b>
-                      <small>إنستاباي: {INSTAPAY_NUMBER} • محفظة: {WALLET_NUMBER}</small>
+                      <b>الدفع عند الاستلام + إنستاباي والمحفظة</b>
+                      <small>عند الاستلام • إنستاباي: {INSTAPAY_NUMBER} • محفظة: {WALLET_NUMBER}</small>
                     </div>
                   </div>
                 </div>
@@ -599,11 +601,19 @@
               <div className="payment-col">
                 <span className="kicker">طرق الدفع المعتمدة</span>
                 <h2 style={{ margin: '4px 0', fontSize: 26 }}>
-                  الدفع عبر <span>إنستاباي والمحفظة</span>
+                  الدفع عند الاستلام <span>وإنستاباي والمحفظة</span>
                 </h2>
                 <p style={{ margin: 0, fontSize: 12, color: '#94a3b8' }}>
-                  اختر وسيلة الدفع المناسبة وسجّل طلبك مباشرة إلى قاعدة البيانات.
+                  يمكنك الدفع نقداً عند الاستلام أو عبر إنستاباي أو المحفظة الإلكترونية وتسجيل طلبك مباشرة.
                 </p>
+
+                <div className="info-card">
+                  <span>💵</span>
+                  <div>
+                    <b>الدفع عند الاستلام</b>
+                    <small>ادفع نقداً للمندوب أو عند الاستلام من الفرع</small>
+                  </div>
+                </div>
 
                 <div className="info-card">
                   <span>🏦</span>
@@ -645,6 +655,13 @@
                 <h3>إرسال طلب جديد</h3>
 
                 <div className="switch-group">
+                  <button
+                    type="button"
+                    className={`switch-btn ${paymentMethod === 'cod' ? 'active' : ''}`}
+                    onClick={() => setPaymentMethod('cod')}
+                  >
+                    الدفع عند الاستلام
+                  </button>
                   <button
                     type="button"
                     className={`switch-btn ${paymentMethod === 'instapay' ? 'active' : ''}`}
