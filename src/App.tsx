@@ -9,7 +9,7 @@ const [loading, setLoading] = useState(false);
 const [statusMessage, setStatusMessage] = useState('');
 async function handleSubmit(e: React.FormEvent) {
 e.preventDefault();
-setStatusMessage('');​//
+setStatusMessage('');​
 if (!customerName.trim() || !phone.trim()) {
 setStatusMessage('يرجى إدخال اسم العميل ورقم الهاتف.');
 return;
